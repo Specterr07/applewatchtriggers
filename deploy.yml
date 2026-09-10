@@ -9,6 +9,7 @@ jobs:
   deploy:
     name: Deploy app
     runs-on: ubuntu-latest
+    environment: FLY_API_TOKEN  # matches the Environment you created in GitHub Settings
     steps:
       # Pulls your repo's code into this workflow's temporary machine
       - uses: actions/checkout@v4
