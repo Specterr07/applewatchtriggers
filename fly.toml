@@ -1,0 +1,18 @@
+app = "applewatchtriggers"  # fly launch will let you rename this to something unique
+primary_region = "sin"    # pick the region closest to you, e.g. "sin" (Singapore) for India
+
+[build]
+
+[env]
+  DATA_DIR = "/data"
+
+[[mounts]]
+  source = "task_data"
+  destination = "/data"
+
+[http_service]
+  internal_port = 8080
+  force_https = true
+  auto_stop_machines = false   # keep it running so requests don't time out waiting for a cold start
+  auto_start_machines = true
+  min_machines_running = 1

@@ -1,0 +1,19 @@
+# Data files - these live on the Fly.io volume, not in git
+tasks.csv
+planner.csv
+
+# Python
+__pycache__/
+*.pyc
+.venv/
+venv/
+
+# macOS
+.DS_Store
+
+# Editor
+.vscode/
+.idea/
+
+# Env files (if you ever add a local .env)
+.env

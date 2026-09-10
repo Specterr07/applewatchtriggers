@@ -1,0 +1,236 @@
+openapi: 3.0.3
+info:
+  title: Task Logger API
+  version: "1.0.0"
+  description: >
+    API for logging Start/End task events (used by an Apple Watch Shortcut
+    and a web frontend) and managing a day planner. All endpoints require
+    an API key, supplied either as a query param (?key=...) or a header
+    (X-API-Key).
+
+servers:
+  - url: https://applewatchtriggers.fly.dev
+    description: Production (Fly.io)
+  - url: http://localhost:8080
+    description: Local development
+
+security:
+  - ApiKeyHeader: []
+  - ApiKeyQuery: []
+
+paths:
+  /toggle:
+    get:
+      summary: Log a Start or End event
+      description: >
+        Toggles based on current state: if the last event was a Start (or
+        there's no history), this logs a Start. If the last event was a
+        Start, this logs an End and calculates the duration.
+      tags: [Time Log]
+      responses:
+        "200":
+          description: Event logged successfully
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  ok: { type: boolean, example: true }
+                  action: { type: string, enum: [Start, End] }
+                  message: { type: string, example: "Task started at 09:00" }
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+        "500":
+          $ref: "#/components/responses/ServerError"
+
+  /status:
+    get:
+      summary: Check what the next /toggle call will do
+      description: Read-only - does not log anything.
+      tags: [Time Log]
+      responses:
+        "200":
+          description: Next action
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  ok: { type: boolean }
+                  next_action: { type: string, enum: [Start, End] }
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+
+  /api/logs:
+    get:
+      summary: Get logged time sessions
+      description: Returns Start/End pairs, newest first. A currently in-progress task has "end" as null.
+      tags: [Time Log]
+      responses:
+        "200":
+          description: List of sessions
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  ok: { type: boolean }
+                  sessions:
+                    type: array
+                    items:
+                      type: object
+                      properties:
+                        start: { type: string, format: date-time, nullable: true }
+                        end: { type: string, format: date-time, nullable: true }
+                        duration_minutes: { type: number, nullable: true }
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+
+  /api/planner:
+    get:
+      summary: Get planner items for a date
+      tags: [Planner]
+      parameters:
+        - name: date
+          in: query
+          required: false
+          description: "Format: YYYY-MM-DD. Defaults to today."
+          schema: { type: string, format: date }
+      responses:
+        "200":
+          description: Planner items for that date
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  ok: { type: boolean }
+                  date: { type: string, format: date }
+                  items:
+                    type: array
+                    items: { $ref: "#/components/schemas/PlannerItem" }
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+    post:
+      summary: Add a new planner item
+      tags: [Planner]
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [date, start_time, end_time, title]
+              properties:
+                date: { type: string, format: date, example: "2026-09-02" }
+                start_time: { type: string, example: "09:00" }
+                end_time: { type: string, example: "10:00" }
+                title: { type: string, example: "Deep work" }
+      responses:
+        "201":
+          description: Item created
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  ok: { type: boolean }
+                  item: { $ref: "#/components/schemas/PlannerItem" }
+        "400":
+          description: Missing required fields
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+
+  /api/planner/{item_id}:
+    patch:
+      summary: Update a planner item
+      description: Send any subset of fields to update (e.g. just "completed" to check it off).
+      tags: [Planner]
+      parameters:
+        - name: item_id
+          in: path
+          required: true
+          schema: { type: string }
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                date: { type: string, format: date }
+                start_time: { type: string }
+                end_time: { type: string }
+                title: { type: string }
+                completed: { type: string, enum: ["True", "False"] }
+      responses:
+        "200":
+          description: Updated item
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  ok: { type: boolean }
+                  item: { $ref: "#/components/schemas/PlannerItem" }
+        "404":
+          description: No planner item with that id
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+    delete:
+      summary: Delete a planner item
+      tags: [Planner]
+      parameters:
+        - name: item_id
+          in: path
+          required: true
+          schema: { type: string }
+      responses:
+        "200":
+          description: Deleted successfully
+        "404":
+          description: No planner item with that id
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+
+components:
+  securitySchemes:
+    ApiKeyHeader:
+      type: apiKey
+      in: header
+      name: X-API-Key
+    ApiKeyQuery:
+      type: apiKey
+      in: query
+      name: key
+
+  schemas:
+    PlannerItem:
+      type: object
+      properties:
+        id: { type: string, example: "e97f7cd2" }
+        date: { type: string, format: date }
+        start_time: { type: string, example: "09:00" }
+        end_time: { type: string, example: "10:00" }
+        title: { type: string }
+        completed: { type: string, enum: ["True", "False"] }
+
+  responses:
+    Unauthorized:
+      description: Missing or invalid API key
+      content:
+        application/json:
+          schema:
+            type: object
+            properties:
+              ok: { type: boolean, example: false }
+              message: { type: string, example: "Invalid or missing API key" }
+    ServerError:
+      description: Server-side error (e.g. file read/write failure)
+      content:
+        application/json:
+          schema:
+            type: object
+            properties:
+              ok: { type: boolean, example: false }
+              message: { type: string }
