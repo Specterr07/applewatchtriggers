@@ -1,2 +1,8 @@
 Flask==3.0.3
 flask-swagger-ui==4.11.1
+
+# Provides the IANA timezone database for Python's `zoneinfo`. The Docker
+# image's base OS (python:3.12-slim) doesn't reliably ship its own copy, so
+# without this, ZoneInfo("Asia/Kolkata") would raise ZoneInfoNotFoundError
+# in production even though it works fine on your Mac.
+tzdata==2026.4

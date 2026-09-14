@@ -14,12 +14,36 @@ from flask import Flask, jsonify, request, send_from_directory
 from flask_swagger_ui import get_swaggerui_blueprint
 from datetime import datetime
 from functools import wraps
+from zoneinfo import ZoneInfo
 import csv
 import os
 import uuid
 import fcntl  # used to prevent two requests from writing at the exact same time
 
 app = Flask(__name__)
+
+# Which timezone "now" means for every timestamp this app writes or reads.
+#
+# Why this exists: `datetime.now()` uses whatever timezone the OS clock is
+# set to. On your Mac that's your local timezone, so testing locally looks
+# fine - but the Fly.io container's clock runs in UTC. Without pinning a
+# timezone explicitly, the exact same code logs a task started at 9:00 AM
+# local time as 3:30 AM once deployed (UTC is 5:30 behind IST) - which is
+# the "sometimes logged wrong" bug. Set TIMEZONE as an env var to override;
+# defaults to Asia/Kolkata (IST).
+TIMEZONE = ZoneInfo(os.environ.get("TIMEZONE", "Asia/Kolkata"))
+
+
+def local_now():
+    """
+    Current wall-clock time in TIMEZONE, as a naive datetime (no tzinfo
+    attached). Naive on purpose: tasks.csv only ever stores a plain
+    "YYYY-MM-DD HH:MM:SS" string, so every place that reads or writes that
+    string needs to agree on ONE timezone's wall clock - this is it. Using
+    this everywhere instead of datetime.now() means "now" no longer depends
+    on which machine (your Mac vs. the Fly container) happens to run it.
+    """
+    return datetime.now(TIMEZONE).replace(tzinfo=None)
 
 # Simple shared-secret protection. Once this API is public on the internet,
 # anyone who guesses the URL could log fake events without this check.
@@ -144,7 +168,7 @@ def toggle():
         # clearly instead of silently guessing "Start".
         return jsonify({"ok": False, "message": str(e)}), 500
 
-    now = datetime.now()
+    now = local_now()
     now_str = now.strftime("%Y-%m-%d %H:%M:%S")
 
     # Decide: are we starting, or ending?
@@ -288,7 +312,10 @@ def get_planner():
     Returns planner items for a given date, e.g. /api/planner?date=2026-09-02
     Defaults to today if no date is given.
     """
-    date = request.args.get("date") or datetime.now().strftime("%Y-%m-%d")
+    # Use local_now(), not datetime.now() - defaulting to the SERVER's date
+    # (UTC in production) would show yesterday's planner for a few hours
+    # after midnight local time.
+    date = request.args.get("date") or local_now().strftime("%Y-%m-%d")
     try:
         rows = read_planner_rows()
     except RuntimeError as e:
@@ -387,6 +414,22 @@ def delete_planner_item(item_id):
     return jsonify({"ok": True}), 200
 
 
+CANVAS_DIST = os.path.join(os.path.dirname(__file__), "canvas_dist")
+
+
+@app.route("/canvas")
+@app.route("/canvas/")
+def canvas():
+    """Serves the compiled tldraw canvas app's entry HTML."""
+    return send_from_directory(CANVAS_DIST, "index.html")
+
+
+@app.route("/canvas/assets/<path:filename>")
+def canvas_assets(filename):
+    """Serves the canvas app's built JS/CSS files."""
+    return send_from_directory(os.path.join(CANVAS_DIST, "assets"), filename)
+
+
 @app.route("/")
 def index():
     """Serves the webpage (static/index.html) - the login screen, time
@@ -404,4 +447,5 @@ def not_found(e):
 if __name__ == "__main__":
     # host="0.0.0.0" makes it reachable from outside your own machine
     # (needed later when this runs on a server / you hit it from your Watch)
+    # Port 8080 - port 5000 conflicts with AirPlay Receiver on Mac.
     app.run(host="0.0.0.0", port=8080, debug=True)

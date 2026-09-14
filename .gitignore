@@ -15,5 +15,15 @@ venv/
 .vscode/
 .idea/
 
+# Frontend (React/tldraw canvas) - node_modules is huge and dist/ is
+# generated fresh by the Docker build, neither belongs in git
+frontend/node_modules/
+frontend/dist/
+*.tsbuildinfo
+
+# Compiled canvas the Docker build drops next to app.py (Stage 1 output).
+# Only exists locally if you copy frontend/dist here to test /canvas.
+canvas_dist/
+
 # Env files (if you ever add a local .env)
 .env

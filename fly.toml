@@ -5,6 +5,10 @@ primary_region = "sin"    # pick the region closest to you, e.g. "sin" (Singapor
 
 [env]
   DATA_DIR = "/data"
+  # Fixes the Watch-vs-server timezone mismatch: the machine's OS clock is
+  # UTC, but timestamps should read in your local time. Change this if you
+  # ever log tasks from a different timezone.
+  TIMEZONE = "Asia/Kolkata"
 
 [[mounts]]
   source = "task_data"
