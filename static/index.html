@@ -3,7 +3,7 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
-<title>Task Logger</title>
+<title>Sheev</title>
 <style>
   :root {
     --bg: #0f1115;
@@ -28,6 +28,7 @@
     text-align: center;
   }
   header h1 { font-size: 20px; margin: 0; font-weight: 600; }
+  header .tagline { color: var(--muted); font-size: 13px; margin: 4px 0 0; }
 
   /* --- Login overlay --- */
   #login-overlay {
@@ -115,6 +116,93 @@
   .session-row .muted { color: var(--muted); font-size: 12px; }
   .session-row .dur { font-weight: 700; color: var(--green); }
 
+  /* --- Bento cards (Time Log) --- */
+  .bento-grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fill, minmax(150px, 1fr));
+    gap: 10px;
+  }
+  .bento-card {
+    background: var(--card);
+    border: 1px solid var(--border);
+    border-radius: 14px;
+    padding: 14px;
+    text-align: left;
+    cursor: pointer;
+    transition: border-color 0.15s;
+  }
+  .bento-card:hover, .bento-card:focus { border-color: var(--accent); outline: none; }
+  .bento-title {
+    font-size: 14px;
+    font-weight: 600;
+    margin-bottom: 4px;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+  }
+  .bento-meta { font-size: 11px; color: var(--muted); margin-bottom: 12px; }
+  .bento-duration { font-size: 28px; font-weight: 800; color: var(--green); line-height: 1; }
+  .bento-unit { font-size: 13px; font-weight: 600; color: var(--muted); margin-left: 4px; }
+
+  /* --- Task detail --- */
+  .back-btn {
+    background: none;
+    border: none;
+    color: var(--accent);
+    font-size: 14px;
+    font-weight: 600;
+    padding: 8px 0;
+    margin-bottom: 8px;
+  }
+  .detail-card {
+    background: var(--card);
+    border: 1px solid var(--border);
+    border-radius: 14px;
+    padding: 18px;
+  }
+  .detail-title-input {
+    width: 100%;
+    background: transparent;
+    border: none;
+    border-bottom: 1px solid var(--border);
+    color: var(--text);
+    font-size: 18px;
+    font-weight: 700;
+    padding: 4px 0 8px;
+    margin-bottom: 4px;
+  }
+  .detail-title-input:focus { outline: none; border-bottom-color: var(--accent); }
+  .detail-date { color: var(--muted); font-size: 12px; margin-bottom: 14px; }
+  .detail-duration { font-size: 36px; font-weight: 800; color: var(--green); margin-bottom: 18px; }
+  .detail-label {
+    display: block;
+    color: var(--muted);
+    font-size: 11px;
+    text-transform: uppercase;
+    letter-spacing: 0.03em;
+    margin: 12px 0 4px;
+  }
+  .detail-card input[type="datetime-local"] {
+    width: 100%;
+    background: #10131a;
+    border: 1px solid var(--border);
+    color: var(--text);
+    border-radius: 8px;
+    padding: 8px;
+    font-size: 13px;
+  }
+  .detail-actions { display: flex; gap: 8px; margin-top: 20px; }
+  .detail-actions button { flex: 1; width: auto; }
+  .danger-btn {
+    padding: 12px;
+    border-radius: 10px;
+    border: 1px solid var(--accent-2);
+    background: transparent;
+    color: var(--accent-2);
+    font-size: 15px;
+    font-weight: 600;
+  }
+
   /* --- Planner --- */
   #planner-date {
     width: 100%;
@@ -185,7 +273,7 @@
 
 <div id="login-overlay">
   <div class="box">
-    <h2>🔒 Task Logger</h2>
+    <h2>🔒 Sheev</h2>
     <p style="color:var(--muted); font-size:13px;">Enter your API key to continue</p>
     <input type="password" id="key-input" placeholder="API key" autocapitalize="off" autocorrect="off">
     <div id="login-error"></div>
@@ -193,7 +281,10 @@
   </div>
 </div>
 
-<header><h1>⏱ Task Logger</h1></header>
+<header>
+  <h1>⏱ Sheev</h1>
+  <p class="tagline">Let's get it done!</p>
+</header>
 
 <div class="tabs">
   <button class="tab-btn active" id="tab-log-btn" onclick="showTab('log')">Time Log</button>
@@ -203,7 +294,27 @@
 
 <div class="view active" id="view-log">
   <button id="toggle-btn" onclick="doToggle()">...</button>
-  <div id="sessions"></div>
+  <div id="sessions" class="bento-grid"></div>
+</div>
+
+<div class="view" id="view-detail">
+  <button class="back-btn" onclick="closeTaskDetail()">← Back</button>
+  <div class="detail-card">
+    <input type="text" id="detail-title" class="detail-title-input" placeholder="Task name">
+    <div class="detail-date" id="detail-date"></div>
+    <div class="detail-duration" id="detail-duration">—</div>
+
+    <label class="detail-label" for="detail-start">Start</label>
+    <input type="datetime-local" id="detail-start" step="1">
+
+    <label class="detail-label" for="detail-end">End</label>
+    <input type="datetime-local" id="detail-end" step="1">
+
+    <div class="detail-actions">
+      <button class="primary-btn" onclick="saveTaskDetail()">Save</button>
+      <button class="danger-btn" onclick="deleteTaskDetail()">Delete</button>
+    </div>
+  </div>
 </div>
 
 <div class="view" id="view-planner">
@@ -249,12 +360,32 @@ async function verifyKeyThenInit() {
   }
 }
 
-function showTab(name) {
+// Shows one of the three views (log / detail / planner) and hides the
+// others. Split out from showTab() because opening a task's detail view
+// (from a bento card click) needs to swap views WITHOUT touching which
+// tab button looks active - the user is still conceptually "in" Time Log.
+function showView(name) {
   document.getElementById("view-log").classList.toggle("active", name === "log");
+  document.getElementById("view-detail").classList.toggle("active", name === "detail");
   document.getElementById("view-planner").classList.toggle("active", name === "planner");
+}
+
+// Handles the actual tab buttons (Time Log / Planner) - same view-swap,
+// plus updating which button is highlighted.
+function showTab(name) {
+  showView(name);
   document.getElementById("tab-log-btn").classList.toggle("active", name === "log");
   document.getElementById("tab-planner-btn").classList.toggle("active", name === "planner");
   if (name === "planner") loadPlanner();
+}
+
+// Escapes a task/session name before it's dropped into innerHTML, so a
+// name containing "<", "&", etc. (typed by you, from the webpage's own
+// naming field) renders as text instead of broken/injected markup.
+function escapeHtml(str) {
+  const div = document.createElement("div");
+  div.textContent = str == null ? "" : String(str);
+  return div.innerHTML;
 }
 
 // ---------- Time Log ----------
@@ -293,20 +424,131 @@ async function loadSessions() {
     container.innerHTML = '<p style="color:var(--muted); text-align:center;">No sessions logged yet.</p>';
     return;
   }
+  // Bento grid: one card per task. name/date/start/end/duration_minutes
+  // all come pre-formatted from the backend (including the generic
+  // "Task – Fri, 9:00 AM" title for anything logged without a name) -
+  // no client-side formatting logic needed here.
   data.sessions.slice(0, 30).forEach(s => {
-    const div = document.createElement("div");
-    div.className = "card";
-    const endText = s.end ? s.end.slice(11,16) : "in progress";
-    const durText = s.duration_minutes ? `${s.duration_minutes}m` : "—";
-    div.innerHTML = `
-      <div class="session-row">
-        <div>
-          <div>${s.start ? s.start.slice(0,10) : ""} · ${s.start ? s.start.slice(11,16) : ""} → ${endText}</div>
-        </div>
-        <div class="dur">${durText}</div>
-      </div>`;
-    container.appendChild(div);
+    const card = document.createElement("button");
+    card.className = "bento-card";
+    card.type = "button";
+    const timeRange = s.end
+      ? `${s.start.slice(11, 16)} – ${s.end.slice(11, 16)}`
+      : `${s.start.slice(11, 16)} · in progress`;
+    const durText = s.duration_minutes != null ? s.duration_minutes : "–";
+    card.innerHTML = `
+      <div class="bento-title">${escapeHtml(s.name)}</div>
+      <div class="bento-meta">${s.date} · ${timeRange}</div>
+      <div class="bento-duration">${durText}${s.duration_minutes != null ? '<span class="bento-unit">min</span>' : ""}</div>`;
+    card.onclick = () => openTaskDetail(s.id);
+    container.appendChild(card);
   });
+}
+
+// ---------- Task detail ----------
+let currentTask = null; // the task currently shown in the detail view
+
+async function openTaskDetail(id) {
+  const res = await fetch(`/api/logs/${id}`, { headers: headers() });
+  const data = await res.json();
+  if (!data.ok) {
+    alert(data.message || "Could not load that task.");
+    return;
+  }
+  currentTask = data.task;
+  renderTaskDetail(currentTask);
+  showView("detail");
+}
+
+function renderTaskDetail(task) {
+  document.getElementById("detail-title").value = task.name;
+  document.getElementById("detail-date").textContent = task.date;
+  document.getElementById("detail-duration").textContent =
+    task.duration_minutes != null ? `${task.duration_minutes} min` : "In progress";
+  document.getElementById("detail-start").value = toDatetimeLocal(task.start);
+  document.getElementById("detail-end").value = task.end ? toDatetimeLocal(task.end) : "";
+}
+
+// The backend stores "YYYY-MM-DD HH:MM:SS"; <input type="datetime-local">
+// wants "YYYY-MM-DDTHH:MM:SS" (a "T" instead of the space - the "step=1"
+// on those inputs is what makes them collect/show seconds at all).
+function toDatetimeLocal(backendTimestamp) {
+  return backendTimestamp.replace(" ", "T");
+}
+
+// Reverse of toDatetimeLocal. Defensive about the seconds: if a browser's
+// datetime-local picker ignores step="1" and only gives minutes, this
+// pads ":00" back on rather than sending the backend a timestamp it will
+// reject as badly formatted.
+function toBackendTimestamp(datetimeLocalValue) {
+  const withSpace = datetimeLocalValue.replace("T", " ");
+  return withSpace.length === 16 ? `${withSpace}:00` : withSpace;
+}
+
+async function saveTaskDetail() {
+  const newName = document.getElementById("detail-title").value.trim();
+  const newStartLocal = document.getElementById("detail-start").value;
+  const newEndLocal = document.getElementById("detail-end").value;
+
+  // Only send fields that actually changed, per the API contract - not
+  // "start"/"end" just because the picker round-tripped the same value.
+  const patch = {};
+  if (newName !== currentTask.name) patch.name = newName;
+
+  if (newStartLocal) {
+    const newStart = toBackendTimestamp(newStartLocal);
+    if (newStart !== currentTask.start) patch.start = newStart;
+  }
+  // Unlike start, end is allowed to be cleared - that reopens the task
+  // (duration goes back to "in progress" on the backend).
+  const newEnd = newEndLocal ? toBackendTimestamp(newEndLocal) : null;
+  if (newEnd !== currentTask.end) patch.end = newEnd;
+
+  if (Object.keys(patch).length === 0) {
+    showTab("log"); // nothing changed - just go back
+    return;
+  }
+
+  try {
+    const res = await fetch(`/api/logs/${currentTask.id}`, {
+      method: "PATCH",
+      headers: headers(),
+      body: JSON.stringify(patch)
+    });
+    const data = await res.json();
+    if (!data.ok) {
+      alert(data.message || "Could not save changes.");
+      return;
+    }
+  } catch (e) {
+    alert("Request failed - check your connection.");
+    return;
+  }
+
+  showTab("log");
+  loadSessions();
+}
+
+async function deleteTaskDetail() {
+  if (!confirm("Delete this task? This can't be undone.")) return;
+  try {
+    const res = await fetch(`/api/logs/${currentTask.id}`, { method: "DELETE", headers: headers() });
+    const data = await res.json();
+    if (!data.ok) {
+      alert(data.message || "Could not delete task.");
+      return;
+    }
+  } catch (e) {
+    alert("Request failed - check your connection.");
+    return;
+  }
+
+  showTab("log");
+  loadSessions();
+}
+
+function closeTaskDetail() {
+  showTab("log"); // discards any unsaved edits - matches the Back control's job
 }
 
 // ---------- Planner ----------

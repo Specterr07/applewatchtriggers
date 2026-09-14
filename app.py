@@ -28,7 +28,7 @@ OPENAPI_SPEC_URL = "/static/openapi.yaml"
 swaggerui_blueprint = get_swaggerui_blueprint(
     SWAGGER_URL,
     OPENAPI_SPEC_URL,
-    config={"app_name": "Task Logger API"},
+    config={"app_name": "Sheev API"},
 )
 app.register_blueprint(swaggerui_blueprint, url_prefix=SWAGGER_URL)
 app.register_blueprint(tasks_bp)

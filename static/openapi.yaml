@@ -1,6 +1,6 @@
 openapi: 3.0.3
 info:
-  title: Task Logger API
+  title: Sheev API
   version: "1.0.0"
   description: >
     API for logging Start/End task events (used by an Apple Watch Shortcut
