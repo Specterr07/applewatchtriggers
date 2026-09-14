@@ -22,6 +22,8 @@ COPY requirements.txt .
 RUN pip install --no-cache-dir -r requirements.txt gunicorn
 
 COPY app.py .
+COPY routes ./routes
+COPY services ./services
 COPY static ./static
 
 # Copy ONLY the compiled canvas app from stage 1 - no Node, no npm,

@@ -23,10 +23,23 @@ paths:
     get:
       summary: Log a Start or End event
       description: >
-        Toggles based on current state: if the last event was a Start (or
-        there's no history), this logs a Start. If the last event was a
-        Start, this logs an End and calculates the duration.
+        Toggles based on current state: if no task is in progress, this
+        starts one. If a task is already in progress, this ends it and
+        calculates the duration. Backed by tasks.db (SQLite) - each Start
+        creates one task row with a stable id; the matching End fills in
+        that same row's end/duration_minutes.
       tags: [Time Log]
+      parameters:
+        - name: name
+          in: query
+          required: false
+          description: >
+            Optional task name. Only ever sent by the webpage's own
+            Start/End button - the Apple Watch Shortcut never sends this,
+            so every Watch-logged task gets a generic
+            "Task – <weekday>, <time>" title instead. Query param (not a
+            JSON body) so /toggle can stay a plain GET the Shortcut can call.
+          schema: { type: string, example: "Deep work" }
       responses:
         "200":
           description: Event logged successfully
@@ -37,6 +50,7 @@ paths:
                 properties:
                   ok: { type: boolean, example: true }
                   action: { type: string, enum: [Start, End] }
+                  id: { type: integer, example: 42, description: "The task's id in tasks.db" }
                   message: { type: string, example: "Task started at 09:00" }
         "401":
           $ref: "#/components/responses/Unauthorized"
@@ -63,12 +77,16 @@ paths:
 
   /api/logs:
     get:
-      summary: Get logged time sessions
-      description: Returns Start/End pairs, newest first. A currently in-progress task has "end" as null.
+      summary: Get every logged task
+      description: >
+        Returns every task, newest first - everything a bento-card grid
+        needs to render. A currently in-progress task has "end" and
+        "duration_minutes" as null. Kept under the "sessions" key for
+        backward compatibility with the webpage's existing Time Log view.
       tags: [Time Log]
       responses:
         "200":
-          description: List of sessions
+          description: List of tasks
           content:
             application/json:
               schema:
@@ -77,12 +95,86 @@ paths:
                   ok: { type: boolean }
                   sessions:
                     type: array
-                    items:
-                      type: object
-                      properties:
-                        start: { type: string, format: date-time, nullable: true }
-                        end: { type: string, format: date-time, nullable: true }
-                        duration_minutes: { type: number, nullable: true }
+                    items: { $ref: "#/components/schemas/Task" }
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+
+  /api/logs/{task_id}:
+    get:
+      summary: Get full detail for one task
+      description: What the task detail page loads.
+      tags: [Time Log]
+      parameters:
+        - name: task_id
+          in: path
+          required: true
+          schema: { type: integer }
+      responses:
+        "200":
+          description: Task detail
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  ok: { type: boolean }
+                  task: { $ref: "#/components/schemas/Task" }
+        "404":
+          description: No task with that id
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+    patch:
+      summary: Edit a task's name/start/end
+      description: >
+        Send any subset of name/start/end to update. If start or end
+        changes, duration_minutes is recalculated server-side so it can
+        never go stale.
+      tags: [Time Log]
+      parameters:
+        - name: task_id
+          in: path
+          required: true
+          schema: { type: integer }
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                name: { type: string, example: "Deep work" }
+                start: { type: string, example: "2026-09-14 09:00:00", description: "YYYY-MM-DD HH:MM:SS" }
+                end: { type: string, example: "2026-09-14 09:45:00", description: "YYYY-MM-DD HH:MM:SS" }
+      responses:
+        "200":
+          description: Updated task
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  ok: { type: boolean }
+                  task: { $ref: "#/components/schemas/Task" }
+        "400":
+          description: Nothing to update, or start/end isn't in YYYY-MM-DD HH:MM:SS format
+        "404":
+          description: No task with that id
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+    delete:
+      summary: Delete a task
+      description: Permanent - ids are never reused, so an old bento-card link never ends up pointing at a different task.
+      tags: [Time Log]
+      parameters:
+        - name: task_id
+          in: path
+          required: true
+          schema: { type: integer }
+      responses:
+        "200":
+          description: Deleted successfully
+        "404":
+          description: No task with that id
         "401":
           $ref: "#/components/responses/Unauthorized"
 
@@ -205,6 +297,22 @@ components:
       name: key
 
   schemas:
+    Task:
+      type: object
+      properties:
+        id: { type: integer, example: 42 }
+        name:
+          type: string
+          example: "Deep work"
+          description: >
+            The name set from the webpage, or - if it was logged from the
+            Watch, or from the webpage without a name - a generic
+            "Task – <weekday>, <time>" title, e.g. "Task – Fri, 9:00 AM".
+        date: { type: string, format: date, example: "2026-09-14" }
+        start: { type: string, example: "2026-09-14 09:00:00" }
+        end: { type: string, example: "2026-09-14 09:45:00", nullable: true }
+        duration_minutes: { type: number, nullable: true, example: 45.0 }
+
     PlannerItem:
       type: object
       properties:
