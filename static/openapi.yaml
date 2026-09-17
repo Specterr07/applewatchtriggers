@@ -177,6 +177,62 @@ paths:
         "401":
           $ref: "#/components/responses/Unauthorized"
 
+  /api/canvas:
+    get:
+      summary: Get the saved canvas snapshot
+      description: >
+        Returns whatever the tldraw canvas app (/canvas) last saved.
+        snapshot is null if nothing has been saved yet.
+      tags: [Canvas]
+      responses:
+        "200":
+          description: Saved canvas snapshot
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  ok: { type: boolean }
+                  snapshot:
+                    type: object
+                    nullable: true
+                    description: Opaque JSON produced by tldraw's getSnapshot() - not a fixed shape.
+                  updated_at: { type: string, nullable: true, example: "2026-09-17 15:06:32" }
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+    put:
+      summary: Save the canvas snapshot
+      description: >
+        Called by the canvas app a few seconds after the last edit
+        (debounced client-side). Overwrites whatever was saved before -
+        there's only ever one canvas.
+      tags: [Canvas]
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [snapshot]
+              properties:
+                snapshot:
+                  type: object
+                  description: Opaque JSON produced by tldraw's getSnapshot().
+      responses:
+        "200":
+          description: Saved
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  ok: { type: boolean }
+                  updated_at: { type: string, example: "2026-09-17 15:06:32" }
+        "400":
+          description: Missing snapshot
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+
 components:
   securitySchemes:
     ApiKeyHeader:
