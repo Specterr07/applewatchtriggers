@@ -1,6 +1,6 @@
 # Project Structure — task-logger
 
-A small **Flask** app that does two things:
+A small **Flask** app that does three things:
 
 1. **Time Log** — an Apple Watch Shortcut (and the webpage) hits `/toggle` to
    start/end a task, stored as one row per task in SQLite (`tasks.db`) so
@@ -10,6 +10,10 @@ A small **Flask** app that does two things:
    Its drawing is saved server-side (`GET`/`PUT /api/canvas`, backed by
    `canvas.db`) so the same canvas shows up on any device, not just the
    browser that drew it.
+3. **Notes** — record a voice note in the browser; the server transcribes it
+   (Groq's Whisper API), re-encodes it to a small mono file (ffmpeg), and
+   stores the compressed audio in Tigris object storage plus the transcript
+   in SQLite (`notes.db`). The original high-quality upload is never kept.
 
 It is deployed to **Fly.io**, and the deploy runs automatically from GitHub
 Actions on every push to `main`.
@@ -21,15 +25,15 @@ Actions on every push to `main`.
 | Path | What it is | Why it exists |
 | --- | --- | --- |
 | `app.py` | Just app wiring: creates the Flask app, sets up Swagger docs, registers the blueprints below, and the 404 handler. No routes or storage logic live here anymore. | Kept intentionally tiny (~50 lines) so it's obvious at a glance what the app is made of. |
-| `routes/` | One file per feature's HTTP routes: `tasks.py` (`/toggle`, `/status`, `/api/logs*`), `canvas.py` (`/api/canvas`, GET/PUT), `pages.py` (`/`, `/canvas`, `/canvas/assets/<file>`). | Each route file only parses the request, calls into `services/`, and shapes the JSON response - no file/database code mixed in. |
-| `services/` | Storage and cross-cutting logic the routes call into: `tasks_db.py` (SQLite CRUD for tasks), `canvas_db.py` (SQLite for the canvas's single saved snapshot), `auth.py` (the `require_key` decorator), `time.py` (`local_now()`/`TIMEZONE`), `config.py` (`DATA_DIR`). | Keeps file/database access out of the route files, and means the same storage functions aren't duplicated across routes that need them. |
-| `requirements.txt` | Python dependencies (`Flask`, `flask-swagger-ui`, `tzdata`). `gunicorn` is installed separately in the Dockerfile for production. | Keeps the backend install minimal. `tzdata` ensures `zoneinfo` can find timezone data even on the slim base image, which doesn't reliably ship its own. |
+| `routes/` | One file per feature's HTTP routes: `tasks.py` (`/toggle`, `/status`, `/api/logs*`), `canvas.py` (`/api/canvas`, GET/PUT), `notes.py` (`/api/notes*`), `pages.py` (`/`, `/canvas`, `/canvas/assets/<file>`). | Each route file only parses the request, calls into `services/`, and shapes the JSON response - no file/database code mixed in. |
+| `services/` | Storage and cross-cutting logic the routes call into: `tasks_db.py` (SQLite CRUD for tasks), `canvas_db.py` (SQLite for the canvas's single saved snapshot), `notes_db.py` (SQLite for note metadata), `object_storage.py` (Tigris via boto3 - upload/delete/presigned playback URLs), `audio_compression.py` (ffmpeg re-encode), `transcription.py` (Groq Whisper), `auth.py` (the `require_key` decorator), `time.py` (`local_now()`/`TIMEZONE`), `config.py` (`DATA_DIR`). | Keeps file/database/external-API code out of the route files, and means the same storage/service functions aren't duplicated across routes that need them. |
+| `requirements.txt` | Python dependencies (`Flask`, `flask-swagger-ui`, `tzdata`, `groq`, `boto3`). `gunicorn` is installed separately in the Dockerfile for production. | Keeps the backend install minimal. `tzdata` ensures `zoneinfo` can find timezone data even on the slim base image, which doesn't reliably ship its own; `groq`/`boto3` are the Notes feature's transcription and Tigris clients. |
 | `static/` | A **plain HTML/CSS/JS** webpage — the login screen and Time Log view, all in one file (`static/index.html`). Also holds `openapi.yaml`. | **No build step, no npm, no framework.** Flask serves this folder directly. Kept dependency-free on purpose so the main webpage stays trivial to edit and deploy. See "Why static/ and frontend/ are split" below. |
 | `static/index.html` | The actual webpage — inline `<style>` and inline `<script>`, talks to the API with `fetch`. | Single self-contained file; nothing to compile. |
 | `static/openapi.yaml` | The OpenAPI 3 contract for the API. Flask serves it at `/static/openapi.yaml`, and `flask-swagger-ui` renders it as browsable docs at `/docs`. | This is the file a frontend engineer reads to build against the API without opening `app.py`. |
 | `frontend/` | A **separate** React + Vite + **tldraw** app — the `/canvas` feature only. Requires npm and a build step. Contains: `index.html` (Vite entry), `main.tsx` (mounts React into `#root`), `App.tsx` (the tldraw canvas - loads its snapshot from `GET /api/canvas` on mount, debounce-saves via `PUT /api/canvas` a few seconds after each edit, plus the "Back to Task Logger" link), `vite-env.d.ts` (Vite ambient types), `package.json` / `package-lock.json`, `vite.config.ts` (`base: '/canvas/'`), and `tsconfig*.json`. | tldraw ships as a React SDK, so this part genuinely needs a bundler. It is built in an isolated Docker stage and only its compiled output is copied into the final image. See "Why static/ and frontend/ are split" below. |
-| `Dockerfile` | **Multi-stage build.** Stage 1 (`node:20-slim`) runs `npm install` + `npm run build` on `frontend/` and produces `frontend/dist`. Stage 2 (`python:3.12-slim`) installs Python deps, copies `app.py`, `routes/`, `services/`, `static/`, and **only** `frontend/dist` (as `canvas_dist/`), then runs gunicorn. | Node and npm never reach the production image — only the compiled canvas JS/CSS does. This is why `frontend/` can have heavy build tooling without bloating the deployed app. |
-| `fly.toml` | Fly.io app config: app name, region (`sin`), the persistent volume mounted at `/data`, `DATA_DIR=/data`, `TIMEZONE=Asia/Kolkata`, and the HTTP service on port 8080. | `tasks.db` and `canvas.db` both live on the Fly volume (`/data`), **not** in the image or git, so data survives redeploys. `TIMEZONE` fixes timestamps to your local time regardless of the container's own (UTC) clock. |
+| `Dockerfile` | **Multi-stage build.** Stage 1 (`node:20-slim`) runs `npm install` + `npm run build` on `frontend/` and produces `frontend/dist`. Stage 2 (`python:3.12-slim`) `apt-get install`s `ffmpeg`, installs Python deps, copies `app.py`, `routes/`, `services/`, `static/`, and **only** `frontend/dist` (as `canvas_dist/`), then runs gunicorn (`--timeout 120`, longer than the 30s default - `POST /api/notes` does upload + transcription + compression + a Tigris upload in one request). | Node and npm never reach the production image — only the compiled canvas JS/CSS does. This is why `frontend/` can have heavy build tooling without bloating the deployed app. `ffmpeg` isn't in `python:3.12-slim` by default, so Notes needs it installed explicitly. |
+| `fly.toml` | Fly.io app config: app name, region (`sin`), the persistent volume mounted at `/data`, `DATA_DIR=/data`, `TIMEZONE=Asia/Kolkata`, and the HTTP service on port 8080. Does **not** list `GROQ_API_KEY` / `AWS_ACCESS_KEY_ID` / `AWS_SECRET_ACCESS_KEY` / `AWS_ENDPOINT_URL_S3` / `BUCKET_NAME` - those are Fly secrets (`fly secrets set ...`), kept out of this (git-tracked) file the same way `API_KEY` already is. | `tasks.db`, `canvas.db`, and `notes.db` all live on the Fly volume (`/data`), **not** in the image or git, so data survives redeploys. `TIMEZONE` fixes timestamps to your local time regardless of the container's own (UTC) clock. |
 | `.github/workflows/deploy.yml` | GitHub Actions workflow: on push to `main`, install `flyctl`, run `flyctl deploy --remote-only`. Uses the `FLY_API_TOKEN` secret. | Automates what used to be a manual `fly deploy`. |
 | `.gitignore` | Excludes the leftover `tasks.csv` (unused now that tasks live in SQLite), Python caches, `.venv/`, editor folders, `.env`, and the generated frontend output (`frontend/node_modules/`, `frontend/dist/`, `canvas_dist/`). | Everything listed is a local or build artifact, not something git should track. |
 | `TODO.md` | *Not currently present in the repo.* | Referenced as a planned scratch list of pending work; add it at the root if you want one tracked. |
@@ -69,6 +73,24 @@ reused even after the task behind it is deleted or edited. SQLite's
 `AUTOINCREMENT` gives that for free. (The old `tasks.csv` test data was
 not migrated; `tasks.db` started empty. Any leftover `tasks.csv` on disk
 is simply unused now.)
+
+---
+
+## Notes: audio in Tigris, metadata in SQLite
+
+A voice note's audio (compressed, mono, low-bitrate) lives in Tigris
+object storage, not in a database - `notes.db` only stores the
+transcript, the object's key, and a timestamp. `GET /api/notes` mints a
+fresh presigned playback URL for each note on every request rather than
+storing a permanent one, since a stored URL would just be a presigned
+link quietly expiring later - the object key is the only part that's
+actually stable.
+
+Needs `GROQ_API_KEY` (transcription) and `AWS_ACCESS_KEY_ID` /
+`AWS_SECRET_ACCESS_KEY` / `AWS_ENDPOINT_URL_S3` / `BUCKET_NAME` (Tigris)
+set as env vars to fully work - without them, recording still runs
+client-side but saving a note fails with a clear error instead of a
+silent one.
 
 ---
 

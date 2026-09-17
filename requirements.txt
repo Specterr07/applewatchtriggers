@@ -6,3 +6,8 @@ flask-swagger-ui==4.11.1
 # without this, ZoneInfo("Asia/Kolkata") would raise ZoneInfoNotFoundError
 # in production even though it works fine on your Mac.
 tzdata==2026.4
+
+# Voice notes: Groq for transcription, boto3 for talking to Tigris
+# (Fly.io's S3-compatible object storage).
+groq==1.7.0
+boto3==1.43.96

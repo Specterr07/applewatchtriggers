@@ -233,6 +233,80 @@ paths:
         "401":
           $ref: "#/components/responses/Unauthorized"
 
+  /api/notes:
+    get:
+      summary: Get every voice note
+      description: Newest first. Each note's audio_url is a fresh, temporary Tigris playback link.
+      tags: [Notes]
+      responses:
+        "200":
+          description: List of notes
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  ok: { type: boolean }
+                  notes:
+                    type: array
+                    items: { $ref: "#/components/schemas/Note" }
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+    post:
+      summary: Upload and save a voice note
+      description: >
+        Transcribes the recording (Groq), re-encodes it to a small
+        mono file (ffmpeg), and stores the compressed audio in Tigris -
+        the original high-quality upload is never kept. All of this
+        happens in one request, so it can take a few seconds.
+      tags: [Notes]
+      requestBody:
+        required: true
+        content:
+          multipart/form-data:
+            schema:
+              type: object
+              required: [audio]
+              properties:
+                audio:
+                  type: string
+                  format: binary
+                  description: The recorded audio (whatever format the browser's MediaRecorder produced).
+      responses:
+        "201":
+          description: Note saved
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  ok: { type: boolean }
+                  note: { $ref: "#/components/schemas/Note" }
+        "400":
+          description: No audio file uploaded, or it was empty
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+        "500":
+          description: Transcription, compression, or storage failed (see message)
+
+  /api/notes/{note_id}:
+    delete:
+      summary: Delete a note
+      description: Removes both its notes.db row and its audio object in Tigris.
+      tags: [Notes]
+      parameters:
+        - name: note_id
+          in: path
+          required: true
+          schema: { type: integer }
+      responses:
+        "200":
+          description: Deleted successfully
+        "404":
+          description: No note with that id
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+
 components:
   securitySchemes:
     ApiKeyHeader:
@@ -260,6 +334,17 @@ components:
         start: { type: string, example: "2026-09-14 09:00:00" }
         end: { type: string, example: "2026-09-14 09:45:00", nullable: true }
         duration_minutes: { type: number, nullable: true, example: 45.0 }
+
+    Note:
+      type: object
+      properties:
+        id: { type: integer, example: 7 }
+        transcript: { type: string, example: "Remember to call the vet about the appointment." }
+        audio_url:
+          type: string
+          nullable: true
+          description: A temporary (1 hour) Tigris playback link, regenerated on every request - not a permanent URL.
+        created_at: { type: string, example: "2026-09-17 15:32:00" }
 
   responses:
     Unauthorized:

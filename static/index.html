@@ -203,6 +203,84 @@
     font-weight: 600;
   }
 
+  /* --- Notes --- */
+  #note-record-btn {
+    width: 100%;
+    padding: 22px;
+    border-radius: 16px;
+    border: none;
+    font-size: 18px;
+    font-weight: 700;
+    margin: 8px 0 16px;
+    background: var(--accent);
+    color: white;
+  }
+  #note-record-btn.recording {
+    background: var(--accent-2);
+    animation: note-pulse-bg 1.4s ease-in-out infinite;
+  }
+  #note-record-btn:disabled { opacity: 0.5; }
+  @keyframes note-pulse-bg {
+    0%, 100% { opacity: 1; }
+    50% { opacity: 0.55; }
+  }
+
+  .note-status {
+    display: none;
+    align-items: center;
+    justify-content: center;
+    gap: 10px;
+    color: var(--muted);
+    font-size: 14px;
+    margin-bottom: 16px;
+  }
+  .note-status.visible { display: flex; }
+  .note-pulse-dot {
+    width: 10px; height: 10px;
+    border-radius: 50%;
+    background: var(--accent);
+    animation: note-pulse-dot 1s ease-in-out infinite;
+  }
+  @keyframes note-pulse-dot {
+    0%, 100% { transform: scale(0.7); opacity: 0.5; }
+    50% { transform: scale(1); opacity: 1; }
+  }
+
+  .note-error {
+    display: none;
+    background: rgba(255, 107, 107, 0.1);
+    border: 1px solid var(--accent-2);
+    border-radius: 12px;
+    padding: 12px 14px;
+    margin-bottom: 16px;
+    color: var(--accent-2);
+    font-size: 14px;
+    text-align: center;
+  }
+  .note-error.visible { display: block; }
+  .note-error button {
+    margin-top: 10px;
+    width: auto;
+    padding: 8px 20px;
+    border-radius: 8px;
+    border: none;
+    background: var(--accent-2);
+    color: white;
+    font-size: 13px;
+    font-weight: 600;
+  }
+
+  .note-card { display: flex; flex-direction: column; gap: 8px; }
+  .note-transcript { font-size: 14px; line-height: 1.4; }
+  .note-row { display: flex; align-items: center; gap: 8px; }
+  .note-audio { flex: 1; height: 32px; }
+  .note-del {
+    background: none; border: none;
+    color: var(--accent-2); font-weight: 700; font-size: 16px;
+    padding: 4px 8px; cursor: pointer;
+  }
+  .note-meta { color: var(--muted); font-size: 11px; }
+
 </style>
 </head>
 <body>
@@ -224,6 +302,7 @@
 
 <div class="tabs">
   <button class="tab-btn active" id="tab-log-btn" onclick="showTab('log')">Time Log</button>
+  <button class="tab-btn" id="tab-notes-btn" onclick="showTab('notes')">Notes</button>
   <a class="tab-btn" href="/canvas" style="text-decoration:none; display:flex; align-items:center; justify-content:center;">Canvas</a>
 </div>
 
@@ -250,6 +329,21 @@
       <button class="danger-btn" onclick="deleteTaskDetail()">Delete</button>
     </div>
   </div>
+</div>
+
+<div class="view" id="view-notes">
+  <button id="note-record-btn" onclick="toggleRecording()">🎤 Record a note</button>
+
+  <div class="note-status" id="note-status">
+    <span class="note-pulse-dot"></span> Transcribing…
+  </div>
+
+  <div class="note-error" id="note-error">
+    <div id="note-error-message">Couldn't save that note.</div>
+    <button onclick="retryUpload()">Retry</button>
+  </div>
+
+  <div id="notes-list"></div>
 </div>
 
 <script>
@@ -284,20 +378,23 @@ async function verifyKeyThenInit() {
   }
 }
 
-// Shows one of the views (log / detail) and hides the other. Split out
-// from showTab() because opening a task's detail view (from a bento card
-// click) needs to swap views WITHOUT touching which tab button looks
-// active - the user is still conceptually "in" Time Log.
+// Shows one of the views (log / detail / notes) and hides the others.
+// Split out from showTab() because opening a task's detail view (from a
+// bento card click) needs to swap views WITHOUT touching which tab
+// button looks active - the user is still conceptually "in" Time Log.
 function showView(name) {
   document.getElementById("view-log").classList.toggle("active", name === "log");
   document.getElementById("view-detail").classList.toggle("active", name === "detail");
+  document.getElementById("view-notes").classList.toggle("active", name === "notes");
 }
 
-// Handles the actual tab button(s) - same view-swap, plus updating which
-// button is highlighted.
+// Handles the actual tab buttons (Time Log / Notes) - same view-swap,
+// plus updating which button is highlighted.
 function showTab(name) {
   showView(name);
   document.getElementById("tab-log-btn").classList.toggle("active", name === "log");
+  document.getElementById("tab-notes-btn").classList.toggle("active", name === "notes");
+  if (name === "notes") loadNotes();
 }
 
 // Escapes a task/session name before it's dropped into innerHTML, so a
@@ -470,6 +567,181 @@ async function deleteTaskDetail() {
 
 function closeTaskDetail() {
   showTab("log"); // discards any unsaved edits - matches the Back control's job
+}
+
+// ---------- Notes ----------
+// State machine for the record button: "idle" -> "recording" ->
+// "transcribing" -> back to "idle", or "error" if the upload failed.
+// pendingBlob is kept in memory through "transcribing"/"error" so
+// Retry can resend the SAME recording instead of making you talk again.
+let noteRecorder = null;
+let noteChunks = [];
+let noteState = "idle";
+let pendingBlob = null;
+
+function setNoteState(next) {
+  noteState = next;
+  const recordBtn = document.getElementById("note-record-btn");
+  const statusEl = document.getElementById("note-status");
+  const errorEl = document.getElementById("note-error");
+
+  recordBtn.disabled = next === "transcribing";
+  statusEl.classList.toggle("visible", next === "transcribing");
+  errorEl.classList.toggle("visible", next === "error");
+
+  if (next === "recording") {
+    recordBtn.textContent = "⏹ Stop recording";
+    recordBtn.classList.add("recording");
+  } else {
+    recordBtn.textContent = "🎤 Record a note";
+    recordBtn.classList.remove("recording");
+  }
+}
+
+function toggleRecording() {
+  if (noteState === "recording") {
+    stopRecording();
+  } else if (noteState === "idle" || noteState === "error") {
+    // Starting fresh from an error discards the failed recording -
+    // Retry (in the error banner) is the way to resend it instead.
+    startRecording();
+  }
+}
+
+async function startRecording() {
+  let stream;
+  try {
+    stream = await navigator.mediaDevices.getUserMedia({ audio: true });
+  } catch (e) {
+    alert("Couldn't access the microphone. Check your browser's permission for this site.");
+    return;
+  }
+
+  noteChunks = [];
+  noteRecorder = new MediaRecorder(stream);
+  noteRecorder.ondataavailable = (e) => {
+    if (e.data.size > 0) noteChunks.push(e.data);
+  };
+  noteRecorder.onstop = () => {
+    stream.getTracks().forEach((track) => track.stop());
+    pendingBlob = new Blob(noteChunks, { type: noteRecorder.mimeType || "audio/webm" });
+    uploadRecording();
+  };
+  noteRecorder.start();
+  setNoteState("recording");
+}
+
+function stopRecording() {
+  if (noteRecorder && noteState === "recording") {
+    noteRecorder.stop(); // onstop (above) kicks off the upload
+    setNoteState("transcribing");
+  }
+}
+
+async function uploadRecording() {
+  setNoteState("transcribing");
+  try {
+    const ext = pendingBlob.type.includes("mp4") ? "mp4" : "webm";
+    const formData = new FormData();
+    formData.append("audio", pendingBlob, `recording.${ext}`);
+
+    // No Content-Type header here on purpose - the browser sets its own
+    // multipart boundary for FormData, and overriding it breaks the upload.
+    const res = await fetch("/api/notes", {
+      method: "POST",
+      headers: { "X-API-Key": apiKey },
+      body: formData
+    });
+    const data = await res.json();
+    if (!data.ok) throw new Error(data.message || "Could not save that note.");
+
+    prependNote(data.note);
+    pendingBlob = null;
+    setNoteState("idle");
+  } catch (e) {
+    document.getElementById("note-error-message").textContent =
+      e.message && e.message !== "Failed to fetch"
+        ? e.message
+        : "Couldn't save that note - check your connection.";
+    setNoteState("error");
+  }
+}
+
+function retryUpload() {
+  if (!pendingBlob) {
+    setNoteState("idle");
+    return;
+  }
+  uploadRecording();
+}
+
+function noteCardHtml(note) {
+  const audioSrc = note.audio_url ? escapeHtml(note.audio_url) : "";
+  return `
+    <div class="note-transcript">${escapeHtml(note.transcript)}</div>
+    <div class="note-row">
+      <audio controls class="note-audio" src="${audioSrc}"></audio>
+      <button class="note-del" onclick="deleteNote(${note.id})">✕</button>
+    </div>
+    <div class="note-meta">${escapeHtml(note.created_at)}</div>`;
+}
+
+function prependNote(note) {
+  const list = document.getElementById("notes-list");
+  const emptyMsg = list.querySelector(".empty-msg");
+  if (emptyMsg) emptyMsg.remove();
+
+  const card = document.createElement("div");
+  card.className = "card note-card";
+  card.dataset.noteId = note.id;
+  card.innerHTML = noteCardHtml(note);
+  list.prepend(card);
+}
+
+async function loadNotes() {
+  const list = document.getElementById("notes-list");
+  try {
+    const res = await fetch("/api/notes", { headers: headers() });
+    const data = await res.json();
+    if (!data.ok) throw new Error(data.message || "Could not load notes.");
+
+    list.innerHTML = "";
+    if (!data.notes || data.notes.length === 0) {
+      list.innerHTML = '<p class="empty-msg" style="color:var(--muted); text-align:center;">No notes yet.</p>';
+      return;
+    }
+    data.notes.forEach((note) => {
+      const card = document.createElement("div");
+      card.className = "card note-card";
+      card.dataset.noteId = note.id;
+      card.innerHTML = noteCardHtml(note);
+      list.appendChild(card);
+    });
+  } catch (e) {
+    list.innerHTML = '<p style="color:var(--accent-2); text-align:center;">Couldn\'t load notes - check your connection.</p>';
+  }
+}
+
+async function deleteNote(id) {
+  if (!confirm("Delete this note? This can't be undone.")) return;
+  try {
+    const res = await fetch(`/api/notes/${id}`, { method: "DELETE", headers: headers() });
+    const data = await res.json();
+    if (!data.ok) {
+      alert(data.message || "Could not delete note.");
+      return;
+    }
+  } catch (e) {
+    alert("Request failed - check your connection.");
+    return;
+  }
+
+  const card = document.querySelector(`.note-card[data-note-id="${id}"]`);
+  if (card) card.remove();
+  const list = document.getElementById("notes-list");
+  if (!list.children.length) {
+    list.innerHTML = '<p class="empty-msg" style="color:var(--muted); text-align:center;">No notes yet.</p>';
+  }
 }
 
 function init() {
