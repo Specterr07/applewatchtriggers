@@ -4,18 +4,15 @@ Task Logger - Flask app wiring.
 This file just creates the Flask app, sets up Swagger docs, and registers
 the blueprints below. The actual routes and logic live in:
     routes/tasks.py     -> /toggle, /status, /api/logs*      (SQLite, tasks.db)
-    routes/planner.py   -> /api/planner*                     (CSV, planner.csv)
     routes/pages.py     -> /, /canvas, /canvas/assets/<file> (static webpage + canvas)
-    services/           -> storage (tasks_db.py, planner_csv.py), auth.py, time.py
-See PROJECT_STRUCTURE.md for the full layout and why tasks moved to
-SQLite while the planner stayed on CSV.
+    services/           -> storage (tasks_db.py), auth.py, time.py
+See PROJECT_STRUCTURE.md for the full layout.
 """
 
 from flask import Flask, jsonify
 from flask_swagger_ui import get_swaggerui_blueprint
 
 from routes.tasks import tasks_bp
-from routes.planner import planner_bp
 from routes.pages import pages_bp
 
 app = Flask(__name__)
@@ -32,7 +29,6 @@ swaggerui_blueprint = get_swaggerui_blueprint(
 )
 app.register_blueprint(swaggerui_blueprint, url_prefix=SWAGGER_URL)
 app.register_blueprint(tasks_bp)
-app.register_blueprint(planner_bp)
 app.register_blueprint(pages_bp)
 
 

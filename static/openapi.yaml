@@ -4,9 +4,8 @@ info:
   version: "1.0.0"
   description: >
     API for logging Start/End task events (used by an Apple Watch Shortcut
-    and a web frontend) and managing a day planner. All endpoints require
-    an API key, supplied either as a query param (?key=...) or a header
-    (X-API-Key).
+    and a web frontend). All endpoints require an API key, supplied either
+    as a query param (?key=...) or a header (X-API-Key).
 
 servers:
   - url: https://applewatchtriggers.fly.dev
@@ -178,113 +177,6 @@ paths:
         "401":
           $ref: "#/components/responses/Unauthorized"
 
-  /api/planner:
-    get:
-      summary: Get planner items for a date
-      tags: [Planner]
-      parameters:
-        - name: date
-          in: query
-          required: false
-          description: "Format: YYYY-MM-DD. Defaults to today."
-          schema: { type: string, format: date }
-      responses:
-        "200":
-          description: Planner items for that date
-          content:
-            application/json:
-              schema:
-                type: object
-                properties:
-                  ok: { type: boolean }
-                  date: { type: string, format: date }
-                  items:
-                    type: array
-                    items: { $ref: "#/components/schemas/PlannerItem" }
-        "401":
-          $ref: "#/components/responses/Unauthorized"
-    post:
-      summary: Add a new planner item
-      tags: [Planner]
-      requestBody:
-        required: true
-        content:
-          application/json:
-            schema:
-              type: object
-              required: [date, start_time, end_time, title]
-              properties:
-                date: { type: string, format: date, example: "2026-09-02" }
-                start_time: { type: string, example: "09:00" }
-                end_time: { type: string, example: "10:00" }
-                title: { type: string, example: "Deep work" }
-      responses:
-        "201":
-          description: Item created
-          content:
-            application/json:
-              schema:
-                type: object
-                properties:
-                  ok: { type: boolean }
-                  item: { $ref: "#/components/schemas/PlannerItem" }
-        "400":
-          description: Missing required fields
-        "401":
-          $ref: "#/components/responses/Unauthorized"
-
-  /api/planner/{item_id}:
-    patch:
-      summary: Update a planner item
-      description: Send any subset of fields to update (e.g. just "completed" to check it off).
-      tags: [Planner]
-      parameters:
-        - name: item_id
-          in: path
-          required: true
-          schema: { type: string }
-      requestBody:
-        required: true
-        content:
-          application/json:
-            schema:
-              type: object
-              properties:
-                date: { type: string, format: date }
-                start_time: { type: string }
-                end_time: { type: string }
-                title: { type: string }
-                completed: { type: string, enum: ["True", "False"] }
-      responses:
-        "200":
-          description: Updated item
-          content:
-            application/json:
-              schema:
-                type: object
-                properties:
-                  ok: { type: boolean }
-                  item: { $ref: "#/components/schemas/PlannerItem" }
-        "404":
-          description: No planner item with that id
-        "401":
-          $ref: "#/components/responses/Unauthorized"
-    delete:
-      summary: Delete a planner item
-      tags: [Planner]
-      parameters:
-        - name: item_id
-          in: path
-          required: true
-          schema: { type: string }
-      responses:
-        "200":
-          description: Deleted successfully
-        "404":
-          description: No planner item with that id
-        "401":
-          $ref: "#/components/responses/Unauthorized"
-
 components:
   securitySchemes:
     ApiKeyHeader:
@@ -312,16 +204,6 @@ components:
         start: { type: string, example: "2026-09-14 09:00:00" }
         end: { type: string, example: "2026-09-14 09:45:00", nullable: true }
         duration_minutes: { type: number, nullable: true, example: 45.0 }
-
-    PlannerItem:
-      type: object
-      properties:
-        id: { type: string, example: "e97f7cd2" }
-        date: { type: string, format: date }
-        start_time: { type: string, example: "09:00" }
-        end_time: { type: string, example: "10:00" }
-        title: { type: string }
-        completed: { type: string, enum: ["True", "False"] }
 
   responses:
     Unauthorized:

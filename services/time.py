@@ -19,11 +19,10 @@ TIMEZONE = ZoneInfo(os.environ.get("TIMEZONE", "Asia/Kolkata"))
 def local_now():
     """
     Current wall-clock time in TIMEZONE, as a naive datetime (no tzinfo
-    attached). Naive on purpose: both tasks.db and planner.csv only ever
-    store a plain "YYYY-MM-DD HH:MM:SS" (or date) string, so every place
-    that reads or writes it needs to agree on ONE timezone's wall clock -
-    this is it. Using this everywhere instead of datetime.now() means
-    "now" no longer depends on which machine (your Mac vs. the Fly
-    container) happens to run it.
+    attached). Naive on purpose: tasks.db only ever stores a plain
+    "YYYY-MM-DD HH:MM:SS" string, so every place that reads or writes it
+    needs to agree on ONE timezone's wall clock - this is it. Using this
+    everywhere instead of datetime.now() means "now" no longer depends on
+    which machine (your Mac vs. the Fly container) happens to run it.
     """
     return datetime.now(TIMEZONE).replace(tzinfo=None)

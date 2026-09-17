@@ -9,9 +9,7 @@ pairing up on every read. Test data in the old tasks.csv was intentionally
 NOT migrated - tasks.db starts empty.
 
 Every function here opens its own connection and closes it before
-returning, the same "open the file, do the work, close it" pattern the
-planner CSV code uses - so there's never a connection left open between
-requests.
+returning, so there's never a connection left open between requests.
 """
 
 import os

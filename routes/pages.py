@@ -29,6 +29,6 @@ def canvas_assets(filename):
 
 @pages_bp.route("/")
 def index():
-    """Serves the webpage (static/index.html) - the login screen, time
-    log view, and planner all live in that one file."""
+    """Serves the webpage (static/index.html) - the login screen and time
+    log view live in that one file."""
     return send_from_directory("static", "index.html")

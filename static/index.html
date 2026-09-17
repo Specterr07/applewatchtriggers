@@ -203,70 +203,6 @@
     font-weight: 600;
   }
 
-  /* --- Planner --- */
-  #planner-date {
-    width: 100%;
-    padding: 10px;
-    border-radius: 10px;
-    border: 1px solid var(--border);
-    background: var(--card);
-    color: var(--text);
-    margin-bottom: 14px;
-    font-size: 14px;
-  }
-  .add-form {
-    display: flex; flex-wrap: wrap; gap: 8px;
-    background: var(--card);
-    border: 1px solid var(--border);
-    padding: 12px;
-    border-radius: 12px;
-    margin-bottom: 16px;
-  }
-  .add-form input {
-    background: #10131a; border: 1px solid var(--border); color: var(--text);
-    border-radius: 8px; padding: 8px; font-size: 13px;
-  }
-  .add-form input[type="text"] { flex: 1 1 100%; }
-  .add-form input[type="time"] { flex: 1; }
-  .add-form button { flex: 1 1 100%; margin-top: 4px; }
-
-  #timeline {
-    position: relative;
-    border-left: 1px solid var(--border);
-    margin-left: 44px;
-  }
-  .hour-row {
-    position: relative;
-    height: 48px;
-    border-top: 1px solid var(--border);
-  }
-  .hour-label {
-    position: absolute;
-    left: -44px; top: -8px;
-    width: 38px;
-    font-size: 11px;
-    color: var(--muted);
-    text-align: right;
-  }
-  .planner-item {
-    position: absolute;
-    left: 6px; right: 6px;
-    background: #26304a;
-    border-left: 3px solid var(--accent);
-    border-radius: 6px;
-    padding: 4px 8px;
-    font-size: 12px;
-    overflow: hidden;
-  }
-  .planner-item.done {
-    opacity: 0.45;
-    text-decoration: line-through;
-    border-left-color: var(--green);
-  }
-  .planner-item .t { color: var(--muted); font-size: 10px; }
-  .planner-item .del {
-    float: right; color: var(--accent-2); font-weight: 700;
-  }
 </style>
 </head>
 <body>
@@ -288,7 +224,6 @@
 
 <div class="tabs">
   <button class="tab-btn active" id="tab-log-btn" onclick="showTab('log')">Time Log</button>
-  <button class="tab-btn" id="tab-planner-btn" onclick="showTab('planner')">Planner</button>
   <a class="tab-btn" href="/canvas" style="text-decoration:none; display:flex; align-items:center; justify-content:center;">Canvas</a>
 </div>
 
@@ -315,17 +250,6 @@
       <button class="danger-btn" onclick="deleteTaskDetail()">Delete</button>
     </div>
   </div>
-</div>
-
-<div class="view" id="view-planner">
-  <input type="date" id="planner-date" onchange="loadPlanner()">
-  <div class="add-form">
-    <input type="text" id="p-title" placeholder="What are you scheduling?">
-    <input type="time" id="p-start">
-    <input type="time" id="p-end">
-    <button class="primary-btn" onclick="addPlannerItem()">Add to schedule</button>
-  </div>
-  <div id="timeline"></div>
 </div>
 
 <script>
@@ -360,23 +284,20 @@ async function verifyKeyThenInit() {
   }
 }
 
-// Shows one of the three views (log / detail / planner) and hides the
-// others. Split out from showTab() because opening a task's detail view
-// (from a bento card click) needs to swap views WITHOUT touching which
-// tab button looks active - the user is still conceptually "in" Time Log.
+// Shows one of the views (log / detail) and hides the other. Split out
+// from showTab() because opening a task's detail view (from a bento card
+// click) needs to swap views WITHOUT touching which tab button looks
+// active - the user is still conceptually "in" Time Log.
 function showView(name) {
   document.getElementById("view-log").classList.toggle("active", name === "log");
   document.getElementById("view-detail").classList.toggle("active", name === "detail");
-  document.getElementById("view-planner").classList.toggle("active", name === "planner");
 }
 
-// Handles the actual tab buttons (Time Log / Planner) - same view-swap,
-// plus updating which button is highlighted.
+// Handles the actual tab button(s) - same view-swap, plus updating which
+// button is highlighted.
 function showTab(name) {
   showView(name);
   document.getElementById("tab-log-btn").classList.toggle("active", name === "log");
-  document.getElementById("tab-planner-btn").classList.toggle("active", name === "planner");
-  if (name === "planner") loadPlanner();
 }
 
 // Escapes a task/session name before it's dropped into innerHTML, so a
@@ -549,95 +470,6 @@ async function deleteTaskDetail() {
 
 function closeTaskDetail() {
   showTab("log"); // discards any unsaved edits - matches the Back control's job
-}
-
-// ---------- Planner ----------
-function todayStr() {
-  const d = new Date();
-  return d.toISOString().slice(0,10);
-}
-
-function loadPlanner() {
-  const dateInput = document.getElementById("planner-date");
-  if (!dateInput.value) dateInput.value = todayStr();
-  buildTimelineSkeleton();
-  fetchPlannerItems(dateInput.value);
-}
-
-function buildTimelineSkeleton() {
-  const timeline = document.getElementById("timeline");
-  timeline.innerHTML = "";
-  for (let h = 6; h <= 23; h++) {
-    const row = document.createElement("div");
-    row.className = "hour-row";
-    row.innerHTML = `<div class="hour-label">${String(h).padStart(2,"0")}:00</div>`;
-    timeline.appendChild(row);
-  }
-}
-
-function timeToMinutesFrom6am(t) {
-  const [h, m] = t.split(":").map(Number);
-  return (h - 6) * 60 + m;
-}
-
-async function fetchPlannerItems(date) {
-  const res = await fetch(`/api/planner?date=${date}`, { headers: headers() });
-  const data = await res.json();
-  const timeline = document.getElementById("timeline");
-  // Remove any previously rendered items (keep hour rows)
-  timeline.querySelectorAll(".planner-item").forEach(el => el.remove());
-
-  (data.items || []).forEach(item => {
-    const startMin = timeToMinutesFrom6am(item.start_time);
-    const endMin = timeToMinutesFrom6am(item.end_time);
-    const top = (startMin / 60) * 48;
-    const height = Math.max(((endMin - startMin) / 60) * 48, 20);
-
-    const div = document.createElement("div");
-    div.className = "planner-item" + (item.completed === "True" ? " done" : "");
-    div.style.top = top + "px";
-    div.style.height = height + "px";
-    div.innerHTML = `
-      <span class="del" onclick="deletePlannerItem('${item.id}')">✕</span>
-      <div class="t">${item.start_time}–${item.end_time}</div>
-      <div>${item.title}</div>`;
-    div.onclick = (e) => {
-      if (e.target.classList.contains("del")) return;
-      togglePlannerItem(item.id, item.completed !== "True");
-    };
-    timeline.appendChild(div);
-  });
-}
-
-async function addPlannerItem() {
-  const title = document.getElementById("p-title").value.trim();
-  const start = document.getElementById("p-start").value;
-  const end = document.getElementById("p-end").value;
-  const date = document.getElementById("planner-date").value;
-  if (!title || !start || !end) { alert("Fill in title, start and end time."); return; }
-  if (end <= start) { alert("End time must be after start time."); return; }
-
-  await fetch("/api/planner", {
-    method: "POST",
-    headers: headers(),
-    body: JSON.stringify({ date, start_time: start, end_time: end, title })
-  });
-  document.getElementById("p-title").value = "";
-  fetchPlannerItems(date);
-}
-
-async function togglePlannerItem(id, completed) {
-  await fetch(`/api/planner/${id}`, {
-    method: "PATCH",
-    headers: headers(),
-    body: JSON.stringify({ completed: String(completed) })
-  });
-  fetchPlannerItems(document.getElementById("planner-date").value);
-}
-
-async function deletePlannerItem(id) {
-  await fetch(`/api/planner/${id}`, { method: "DELETE", headers: headers() });
-  fetchPlannerItems(document.getElementById("planner-date").value);
 }
 
 function init() {

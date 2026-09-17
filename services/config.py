@@ -1,9 +1,9 @@
 """
 Shared configuration read from environment variables.
 
-Both services/tasks_db.py (SQLite) and services/planner_csv.py (CSV) need to
-know where to put their data file, so that one setting lives here instead of
-being duplicated in both files.
+Every per-feature storage module (services/tasks_db.py and friends) needs
+to know where to put its data file, so that one setting lives here instead
+of being duplicated across all of them.
 """
 
 import os
