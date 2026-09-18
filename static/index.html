@@ -205,13 +205,13 @@
 
   /* --- Notes --- */
   #note-record-btn {
-    width: 100%;
+    flex: 1;
+    width: auto;
     padding: 22px;
     border-radius: 16px;
     border: none;
     font-size: 18px;
     font-weight: 700;
-    margin: 8px 0 16px;
     background: var(--accent);
     color: white;
   }
@@ -269,6 +269,43 @@
     font-size: 13px;
     font-weight: 600;
   }
+
+  .note-record-row { display: flex; gap: 8px; margin: 8px 0 16px; }
+  .note-cancel-btn {
+    display: none;
+    flex: 0 0 64px;
+    border-radius: 16px;
+    border: 1px solid var(--border);
+    background: var(--card);
+    color: var(--muted);
+    font-size: 13px;
+    font-weight: 700;
+  }
+  .note-cancel-btn.visible { display: block; }
+
+  /* --- Confirm dialog (reusable) --- */
+  #confirm-overlay {
+    display: none;
+    position: fixed; inset: 0;
+    background: rgba(0, 0, 0, 0.6);
+    align-items: center; justify-content: center;
+    z-index: 200;
+    padding: 20px;
+  }
+  #confirm-overlay.visible { display: flex; }
+  #confirm-overlay .box {
+    background: var(--card);
+    border: 1px solid var(--border);
+    border-radius: 14px;
+    padding: 22px;
+    width: 100%; max-width: 320px;
+    text-align: center;
+  }
+  #confirm-message { font-size: 14px; line-height: 1.4; margin: 0 0 18px; }
+  .confirm-actions { display: flex; gap: 8px; }
+  .confirm-actions button { flex: 1; padding: 12px; border-radius: 10px; font-size: 14px; font-weight: 600; border: none; }
+  #confirm-cancel-btn { background: #10131a; border: 1px solid var(--border); color: var(--text); }
+  #confirm-ok-btn { background: var(--accent-2); color: white; }
 
   .note-card { display: flex; flex-direction: column; gap: 8px; }
   .note-transcript { font-size: 14px; line-height: 1.4; }
@@ -332,7 +369,10 @@
 </div>
 
 <div class="view" id="view-notes">
-  <button id="note-record-btn" onclick="toggleRecording()">🎤 Record a note</button>
+  <div class="note-record-row">
+    <button id="note-record-btn" onclick="toggleRecording()">🎤 Record a note</button>
+    <button class="note-cancel-btn" id="note-cancel-btn" onclick="cancelRecording()">✕ Cancel</button>
+  </div>
 
   <div class="note-status" id="note-status">
     <span class="note-pulse-dot"></span> Transcribing…
@@ -344,6 +384,16 @@
   </div>
 
   <div id="notes-list"></div>
+</div>
+
+<div id="confirm-overlay">
+  <div class="box">
+    <p id="confirm-message"></p>
+    <div class="confirm-actions">
+      <button id="confirm-cancel-btn" onclick="resolveConfirm(false)">Cancel</button>
+      <button id="confirm-ok-btn" onclick="resolveConfirm(true)">Delete</button>
+    </div>
+  </div>
 </div>
 
 <script>
@@ -569,6 +619,27 @@ function closeTaskDetail() {
   showTab("log"); // discards any unsaved edits - matches the Back control's job
 }
 
+// ---------- Confirm dialog (reusable) ----------
+// A styled stand-in for the browser's native confirm() - same idea
+// (blocks until the user picks an option), but matches the app's own
+// theme instead of the browser's plain, inconsistent-across-browsers box.
+let confirmResolve = null;
+
+function showConfirmDialog(message, confirmLabel = "Delete") {
+  document.getElementById("confirm-message").textContent = message;
+  document.getElementById("confirm-ok-btn").textContent = confirmLabel;
+  document.getElementById("confirm-overlay").classList.add("visible");
+  return new Promise((resolve) => { confirmResolve = resolve; });
+}
+
+function resolveConfirm(result) {
+  document.getElementById("confirm-overlay").classList.remove("visible");
+  if (confirmResolve) {
+    confirmResolve(result);
+    confirmResolve = null;
+  }
+}
+
 // ---------- Notes ----------
 // State machine for the record button: "idle" -> "recording" ->
 // "transcribing" -> back to "idle", or "error" if the upload failed.
@@ -578,19 +649,22 @@ let noteRecorder = null;
 let noteChunks = [];
 let noteState = "idle";
 let pendingBlob = null;
+let recordingCancelled = false; // set right before noteRecorder.stop() when Cancel (not Stop) was tapped
 
 function setNoteState(next) {
   noteState = next;
   const recordBtn = document.getElementById("note-record-btn");
+  const cancelBtn = document.getElementById("note-cancel-btn");
   const statusEl = document.getElementById("note-status");
   const errorEl = document.getElementById("note-error");
 
   recordBtn.disabled = next === "transcribing";
+  cancelBtn.classList.toggle("visible", next === "recording");
   statusEl.classList.toggle("visible", next === "transcribing");
   errorEl.classList.toggle("visible", next === "error");
 
   if (next === "recording") {
-    recordBtn.textContent = "⏹ Stop recording";
+    recordBtn.textContent = "⏹ Stop & Save";
     recordBtn.classList.add("recording");
   } else {
     recordBtn.textContent = "🎤 Record a note";
@@ -618,12 +692,19 @@ async function startRecording() {
   }
 
   noteChunks = [];
+  recordingCancelled = false;
   noteRecorder = new MediaRecorder(stream);
   noteRecorder.ondataavailable = (e) => {
     if (e.data.size > 0) noteChunks.push(e.data);
   };
   noteRecorder.onstop = () => {
     stream.getTracks().forEach((track) => track.stop());
+    if (recordingCancelled) {
+      // Discard - Cancel was tapped, not Stop. Nothing gets uploaded.
+      noteChunks = [];
+      setNoteState("idle");
+      return;
+    }
     pendingBlob = new Blob(noteChunks, { type: noteRecorder.mimeType || "audio/webm" });
     uploadRecording();
   };
@@ -635,6 +716,13 @@ function stopRecording() {
   if (noteRecorder && noteState === "recording") {
     noteRecorder.stop(); // onstop (above) kicks off the upload
     setNoteState("transcribing");
+  }
+}
+
+function cancelRecording() {
+  if (noteRecorder && noteState === "recording") {
+    recordingCancelled = true;
+    noteRecorder.stop(); // onstop (above) sees the flag and discards instead of uploading
   }
 }
 
@@ -723,7 +811,8 @@ async function loadNotes() {
 }
 
 async function deleteNote(id) {
-  if (!confirm("Delete this note? This can't be undone.")) return;
+  const confirmed = await showConfirmDialog("Delete this note? This can't be undone.");
+  if (!confirmed) return;
   try {
     const res = await fetch(`/api/notes/${id}`, { method: "DELETE", headers: headers() });
     const data = await res.json();
