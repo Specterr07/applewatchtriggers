@@ -404,6 +404,55 @@ function headers() {
   return { "Content-Type": "application/json", "X-API-Key": apiKey };
 }
 
+// ---------- Session expiry ----------
+// A "session" here is just "this browser has a copy of the shared key."
+// Two ways it ends: (1) reactively - the server rejects the key (401),
+// e.g. because you rotated it - handled by authedFetch() below on every
+// request made after login; (2) proactively - the key just gets too old,
+// checked here client-side without waiting for a request to fail.
+//
+// Sliding expiry: SESSION_LAST_ACTIVE_STORAGE is refreshed on every
+// successful (auth-wise) request, not just at login - so a tab you use
+// daily never re-prompts, but one left untouched for the full window does.
+const SESSION_LAST_ACTIVE_STORAGE = "task_logger_session_last_active";
+const SESSION_EXPIRY_MS = 24 * 60 * 60 * 1000; // 24 hours
+
+function touchSession() {
+  localStorage.setItem(SESSION_LAST_ACTIVE_STORAGE, String(Date.now()));
+}
+
+function isSessionExpired() {
+  const lastActive = parseInt(localStorage.getItem(SESSION_LAST_ACTIVE_STORAGE) || "0", 10);
+  return !lastActive || (Date.now() - lastActive > SESSION_EXPIRY_MS);
+}
+
+// Clears the stored key and drops back to the login screen. Used both
+// when the key goes stale on its own (time-based) and when the server
+// actively rejects it (rotated on the server, or otherwise revoked).
+function handleSessionExpired(message) {
+  localStorage.removeItem(API_KEY_STORAGE);
+  localStorage.removeItem(SESSION_LAST_ACTIVE_STORAGE);
+  apiKey = null;
+  document.getElementById("login-error").textContent = message;
+  document.getElementById("login-overlay").style.display = "flex";
+}
+
+// Every authenticated fetch after login should go through this instead
+// of plain fetch() - one place to catch "the key stopped working
+// mid-session" instead of every call site checking for 401 itself.
+// (The one exception is the login check itself in verifyKeyThenInit(),
+// which already has its own more specific "incorrect key" message for
+// a fresh login attempt.)
+async function authedFetch(url, options) {
+  const res = await fetch(url, options);
+  if (res.status === 401) {
+    handleSessionExpired("Your session is no longer valid. Please log in again.");
+  } else {
+    touchSession();
+  }
+  return res;
+}
+
 function submitKey() {
   const val = document.getElementById("key-input").value.trim();
   if (!val) return;
@@ -421,6 +470,7 @@ async function verifyKeyThenInit() {
       apiKey = null;
       return;
     }
+    touchSession();
     document.getElementById("login-overlay").style.display = "none";
     init();
   } catch (e) {
@@ -458,7 +508,7 @@ function escapeHtml(str) {
 
 // ---------- Time Log ----------
 async function refreshStatus() {
-  const res = await fetch("/status", { headers: headers() });
+  const res = await authedFetch("/status", { headers: headers() });
   const data = await res.json();
   const btn = document.getElementById("toggle-btn");
   if (data.next_action === "End") {
@@ -474,7 +524,7 @@ async function doToggle() {
   const btn = document.getElementById("toggle-btn");
   btn.disabled = true;
   try {
-    await fetch("/toggle", { headers: headers() });
+    await authedFetch("/toggle", { headers: headers() });
     await refreshStatus();
     await loadSessions();
   } catch (e) {
@@ -484,7 +534,7 @@ async function doToggle() {
 }
 
 async function loadSessions() {
-  const res = await fetch("/api/logs", { headers: headers() });
+  const res = await authedFetch("/api/logs", { headers: headers() });
   const data = await res.json();
   const container = document.getElementById("sessions");
   container.innerHTML = "";
@@ -517,7 +567,7 @@ async function loadSessions() {
 let currentTask = null; // the task currently shown in the detail view
 
 async function openTaskDetail(id) {
-  const res = await fetch(`/api/logs/${id}`, { headers: headers() });
+  const res = await authedFetch(`/api/logs/${id}`, { headers: headers() });
   const data = await res.json();
   if (!data.ok) {
     alert(data.message || "Could not load that task.");
@@ -578,7 +628,7 @@ async function saveTaskDetail() {
   }
 
   try {
-    const res = await fetch(`/api/logs/${currentTask.id}`, {
+    const res = await authedFetch(`/api/logs/${currentTask.id}`, {
       method: "PATCH",
       headers: headers(),
       body: JSON.stringify(patch)
@@ -600,7 +650,7 @@ async function saveTaskDetail() {
 async function deleteTaskDetail() {
   if (!confirm("Delete this task? This can't be undone.")) return;
   try {
-    const res = await fetch(`/api/logs/${currentTask.id}`, { method: "DELETE", headers: headers() });
+    const res = await authedFetch(`/api/logs/${currentTask.id}`, { method: "DELETE", headers: headers() });
     const data = await res.json();
     if (!data.ok) {
       alert(data.message || "Could not delete task.");
@@ -735,7 +785,7 @@ async function uploadRecording() {
 
     // No Content-Type header here on purpose - the browser sets its own
     // multipart boundary for FormData, and overriding it breaks the upload.
-    const res = await fetch("/api/notes", {
+    const res = await authedFetch("/api/notes", {
       method: "POST",
       headers: { "X-API-Key": apiKey },
       body: formData
@@ -789,7 +839,7 @@ function prependNote(note) {
 async function loadNotes() {
   const list = document.getElementById("notes-list");
   try {
-    const res = await fetch("/api/notes", { headers: headers() });
+    const res = await authedFetch("/api/notes", { headers: headers() });
     const data = await res.json();
     if (!data.ok) throw new Error(data.message || "Could not load notes.");
 
@@ -814,7 +864,7 @@ async function deleteNote(id) {
   const confirmed = await showConfirmDialog("Delete this note? This can't be undone.");
   if (!confirmed) return;
   try {
-    const res = await fetch(`/api/notes/${id}`, { method: "DELETE", headers: headers() });
+    const res = await authedFetch(`/api/notes/${id}`, { method: "DELETE", headers: headers() });
     const data = await res.json();
     if (!data.ok) {
       alert(data.message || "Could not delete note.");
@@ -838,10 +888,24 @@ function init() {
   loadSessions();
 }
 
-// On load: skip login if we already have a stored key
+// On load: skip login if we already have a stored, still-fresh key -
+// otherwise treat it the same as never having logged in.
 if (apiKey) {
-  verifyKeyThenInit();
+  if (isSessionExpired()) {
+    handleSessionExpired("Your session expired. Please log in again.");
+  } else {
+    verifyKeyThenInit();
+  }
 }
+
+// Catches a tab left open in the background past the expiry window -
+// without this, expiry would only ever get noticed on the next request
+// (authedFetch) or the next full page load, not while just sitting idle.
+document.addEventListener("visibilitychange", () => {
+  if (document.visibilityState === "visible" && apiKey && isSessionExpired()) {
+    handleSessionExpired("Your session expired. Please log in again.");
+  }
+});
 </script>
 </body>
 </html>
