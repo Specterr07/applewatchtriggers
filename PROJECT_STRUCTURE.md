@@ -18,6 +18,9 @@ A small **Flask** app that does three things:
 It is deployed to **Fly.io**, and the deploy runs automatically from GitHub
 Actions on every push to `main`.
 
+- **Repo:** https://github.com/Specterr07/applewatchtriggers
+- **Live app:** https://applewatchtriggers.fly.dev
+
 ---
 
 ## Top-level files and folders
@@ -36,7 +39,7 @@ Actions on every push to `main`.
 | `fly.toml` | Fly.io app config: app name, region (`sin`), the persistent volume mounted at `/data`, `DATA_DIR=/data`, `TIMEZONE=Asia/Kolkata`, and the HTTP service on port 8080. Does **not** list `GROQ_API_KEY` / `AWS_ACCESS_KEY_ID` / `AWS_SECRET_ACCESS_KEY` / `AWS_ENDPOINT_URL_S3` / `BUCKET_NAME` - those are Fly secrets (`fly secrets set ...`), kept out of this (git-tracked) file the same way `API_KEY` already is. | `tasks.db`, `canvas.db`, and `notes.db` all live on the Fly volume (`/data`), **not** in the image or git, so data survives redeploys. `TIMEZONE` fixes timestamps to your local time regardless of the container's own (UTC) clock. |
 | `.github/workflows/deploy.yml` | GitHub Actions workflow: on push to `main`, install `flyctl`, run `flyctl deploy --remote-only`. Uses the `FLY_API_TOKEN` secret. | Automates what used to be a manual `fly deploy`. |
 | `.gitignore` | Excludes the leftover `tasks.csv` (unused now that tasks live in SQLite), every `*.db` file (`tasks.db`/`canvas.db`/`notes.db` - real data, only ever meant to live on the Fly volume), Python caches, `.venv/`, editor folders, `.env`, and the generated frontend output (`frontend/node_modules/`, `frontend/dist/`, `*.tsbuildinfo`, `canvas_dist/`). | Everything listed is either a local/build artifact or real runtime data - neither belongs in git. |
-| `CLAUDE.md` | Standing instructions for Claude Code working in this repo - currently just: keep this file (`PROJECT_STRUCTURE.md`) in sync with any change that adds/removes/restructures a file, folder, route, service, or database, as part of that same change. | So an out-of-date structure doc gets caught and fixed immediately, not noticed weeks later. |
+| `CLAUDE.md` | Standing instructions for Claude Code working in this repo: keep this file (`PROJECT_STRUCTURE.md`) in sync with any change that adds/removes/restructures a file/folder/route/service/database, as part of that same change; plus a workaround for a local-preview tooling quirk unrelated to this app's own code. | So an out-of-date structure doc gets caught and fixed immediately, and so a fresh session doesn't waste time rediscovering a known tooling gotcha. |
 | `ARCHITECTURE.md` | A Mermaid diagram + written summary of what's actually deployed right now (build pipeline, Flask blueprints, the three SQLite databases, Tigris/Groq, both clients) - verified against the real code, not memory. | A single "how does this all fit together, and why" reference, separate from this file's per-path table. |
 | `PLAN_*.md` | One file per feature: `PLAN_NAMED_TASKS_BENTO_CARDS.md`, `PLAN_CANVAS_SAVE.md`, `PLAN_VOICE_NOTES.md` (all three shipped - written up retroactively as a decision record), `PLAN_MULTI_USER.md` and `PLAN_LLM_REMINDERS.md` (not built yet - capture what's actually decided vs. still an open question, without guessing at the gaps). | A durable record of *why* a feature looks the way it does, and - for what's still ahead - what's actually settled vs. still needs deciding. |
 | `TODO.md` | The consolidated future-work list, grouped into what's ready to build, open questions, and what's explicitly deferred (the multi-user pivot) - built from the `PLAN_*.md` files above. | One place to see what's next without re-reading every plan file. |
