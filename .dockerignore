@@ -15,4 +15,4 @@ __pycache__/
 
 # Runtime data - lives on the Fly volume, never in the image
 tasks.csv
-planner.csv
+*.db
