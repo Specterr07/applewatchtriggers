@@ -209,7 +209,7 @@ Draft task list — each step works on its own:
 - [x] Create bot in BotFather; set the 3 Fly secrets
 - [x] `channels_db.py` + `channels.db` tables
 - [x] `services/telegram.py` (send_message, download_voice)
-- [ ] Webhook route + register it with Telegram (`setWebhook`)
+- [x] Webhook route + register it with Telegram (`setWebhook`)
 - [x] Link flow + "Connect Telegram" button in Notes tab
 - [x] Voice note in → saved → "Saved ✅" reply
 - [x] `send_to_user` + "Send test message" button
