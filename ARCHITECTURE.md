@@ -10,6 +10,8 @@ flowchart TB
     Watch["📱 Apple Watch Shortcut<br/>GET /toggle?key=..."]
     Browser["🌐 Browser<br/>static/index.html<br/>Time Log + Notes tabs"]
     CanvasApp["🌐 Browser<br/>/canvas app (React + tldraw)<br/>separate SPA"]
+    TelegramUser["📱 Me in Telegram"]
+    TelegramServers["Telegram Servers<br/>(Bot API)"]
 
     subgraph CICD["GitHub Actions — .github/workflows/deploy.yml"]
         direction LR
@@ -33,12 +35,16 @@ flowchart TB
     Stage2 -.->|"image deployed to"| Machine
     Machine --- Volume
 
-    subgraph FlaskApp["Flask app (app.py registers 4 blueprints)"]
+    subgraph FlaskApp["Flask app (app.py registers 5 blueprints)"]
         Auth["services/auth.py<br/>require_key decorator<br/>API_KEY env var"]
         PagesRoute["routes/pages.py<br/>/  →  static/index.html<br/>/canvas, /canvas/assets/*  →  canvas_dist/"]
         TasksRoute["routes/tasks.py<br/>/toggle /status<br/>/api/logs, /api/logs/{id}"]
         CanvasRoute["routes/canvas.py<br/>GET/PUT /api/canvas"]
         NotesRoute["routes/notes.py<br/>POST/GET /api/notes<br/>DELETE /api/notes/{id}"]
+        TelegramRoute["routes/telegram.py<br/>POST /telegram/webhook<br/>POST /api/channels/telegram/link<br/>POST /api/channels/test"]
+        ChannelsSvc["services/channels.py<br/>send_to_user"]
+        TelegramSvc["services/telegram.py<br/>send_message · download_voice"]
+        PipelineSvc["services/note_pipeline.py<br/>save_voice_note"]
     end
 
     Machine --> FlaskApp
@@ -46,32 +52,48 @@ flowchart TB
     Watch -->|"?key= query param"| TasksRoute
     Browser -->|"X-API-Key header"| TasksRoute
     Browser -->|"X-API-Key header"| NotesRoute
+    Browser -->|"X-API-Key header"| TelegramRoute
     Browser -->|"loads page"| PagesRoute
     PagesRoute -.->|"serves compiled app,<br/>which the browser then runs as"| CanvasApp
     CanvasApp -->|"X-API-Key header<br/>(reads the same localStorage<br/>key the main page stores)"| CanvasRoute
 
+    TelegramUser <--> TelegramServers
+    TelegramServers -->|"POST webhook"| TelegramRoute
+    TelegramSvc -->|"sendMessage / getFile"| TelegramServers
+
     TasksRoute --> Auth
     CanvasRoute --> Auth
     NotesRoute --> Auth
+    TelegramRoute --> Auth
+    TelegramRoute --> ChannelsSvc
+    TelegramRoute --> TelegramSvc
+    TelegramRoute --> PipelineSvc
+    NotesRoute --> PipelineSvc
+    ChannelsSvc --> TelegramSvc
 
     subgraph Storage["SQLite — one file per feature, all on /data"]
         TasksDB[("tasks.db<br/>tasks(id, name, start, end,<br/>duration_minutes)")]
         CanvasDB[("canvas.db<br/>canvas(id=1 only, snapshot JSON,<br/>updated_at)")]
         NotesDB[("notes.db<br/>notes(id, transcript,<br/>audio_key, created_at)")]
+        ChannelsDB[("channels.db<br/>links, link_codes, seen_updates")]
     end
 
     Volume --- Storage
     TasksRoute --> TasksDB
     CanvasRoute --> CanvasDB
+    PipelineSvc --> NotesDB
     NotesRoute --> NotesDB
+    TelegramRoute --> ChannelsDB
+    ChannelsSvc --> ChannelsDB
 
     subgraph External["External services"]
         Tigris[("🪣 Tigris object storage<br/>bucket = BUCKET_NAME<br/>key: notes/&lt;uuid&gt;.mp3")]
         Groq["🎙️ Groq API<br/>whisper-large-v3-turbo"]
     end
 
-    NotesRoute -->|"boto3: put_object,<br/>delete_object,<br/>generate_presigned_url"| Tigris
-    NotesRoute -->|"transcribe original<br/>upload before compressing"| Groq
+    PipelineSvc -->|"boto3: put_object,<br/>generate_presigned_url"| Tigris
+    NotesRoute -->|"boto3: delete_object,<br/>generate_presigned_url"| Tigris
+    PipelineSvc -->|"transcribe original<br/>upload before compressing"| Groq
 
     N1["Why per-feature SQLite files,<br/>not one shared DB: each feature's<br/>storage stays independently simple<br/>and swappable - tasks moved off CSV<br/>only because it needed stable ids;<br/>canvas/notes just followed that<br/>same established pattern"]:::note
     N2["Why multi-stage Docker build:<br/>Node/npm/source .tsx files never<br/>reach the deployed image - only<br/>the compiled canvas JS/CSS does"]:::note
@@ -121,7 +143,7 @@ the same code works identically in local dev (where `DATA_DIR` defaults to
 
 ### The Flask app
 `app.py` itself is just wiring: it creates the app, sets up Swagger docs
-(`/docs`, generated from `static/openapi.yaml`), and registers four
+(`/docs`, generated from `static/openapi.yaml`), and registers five
 blueprints. Every blueprint's actual logic lives in its own `routes/*.py`
 file, which calls into `services/*.py` for anything touching a database,
 external API, or the filesystem - so a route file is just "parse the
@@ -136,10 +158,14 @@ request → call a service → shape the JSON response," nothing else.
   one task) for the webpage's bento-card grid and detail view.
 - **`routes/canvas.py`** - `GET`/`PUT /api/canvas`, so the tldraw canvas
   persists server-side instead of being stuck in one browser's local storage.
-- **`routes/notes.py`** - the voice-notes pipeline described above.
+- **`routes/notes.py`** - the voice-notes API (`GET/POST /api/notes`, `DELETE /api/notes/{id}`).
+- **`routes/telegram.py`** - Telegram bot webhook handler (`POST /telegram/webhook`),
+  pairing code generation (`POST /api/channels/telegram/link`), and test outbound
+  message trigger (`POST /api/channels/test`).
 
-**Every data route is behind `services/auth.py`'s `require_key` decorator**,
-a single shared-secret `API_KEY`. It accepts the key from *either* a
+**Every data route is behind `services/auth.py`'s `require_key` decorator** (except
+`/telegram/webhook`, which is verified via Telegram's secret token header
+`X-Telegram-Bot-Api-Secret-Token`). It accepts the key from *either* a
 `?key=...` query param (what the Watch Shortcut sends - it has no easy way
 to set a custom header) *or* an `X-API-Key` header (what the webpage's own
 `fetch()` calls send, reading the same key out of `localStorage` that the
@@ -147,13 +173,13 @@ canvas app also reads - same origin, so that storage is shared). If
 `API_KEY` isn't set at all (e.g. local dev), the check is skipped entirely.
 
 ### Storage: one SQLite file per feature
-`tasks.db`, `canvas.db`, and `notes.db` each live on the `/data` volume, and
+`tasks.db`, `canvas.db`, `notes.db`, and `channels.db` each live on the `/data` volume, and
 each is owned by exactly one `services/*_db.py` module that's the only code
-allowed to touch it. This isn't an accident of three separate features being
-built at three separate times so much as a deliberate, repeated choice: tasks
+allowed to touch it. This isn't an accident of separate features being
+built at separate times so much as a deliberate, repeated choice: tasks
 moved off a CSV file specifically because a bento-card grid and per-task
 detail page needed a **stable id** that survives edits/deletes (SQLite's
-`AUTOINCREMENT` gives that for free); canvas and notes simply followed that
+`AUTOINCREMENT` gives that for free); canvas, notes, and channels simply followed that
 same already-established pattern rather than inventing a fourth approach.
 Nothing shares a database, so any one feature's storage could be swapped out
 (or migrated to something else entirely) without touching the others.
@@ -167,6 +193,8 @@ Nothing shares a database, so any one feature's storage could be swapped out
 - **`notes.db`** - one row per voice note: `id, transcript, audio_key,
   created_at`. Notice there's no audio data and no URL here - just a
   reference (`audio_key`) to where the real audio lives.
+- **`channels.db`** - channel connection links (`links`), single-use pairing codes
+  (`link_codes`), and idempotent webhook IDs (`seen_updates`).
 
 ### Voice notes: audio in Tigris, not in SQLite
 The actual compressed audio bytes live in **Tigris** (Fly's S3-compatible

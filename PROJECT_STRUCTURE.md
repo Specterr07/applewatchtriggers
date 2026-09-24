@@ -14,6 +14,10 @@ A small **Flask** app that does three things:
    (Groq's Whisper API), re-encodes it to a small mono file (ffmpeg), and
    stores the compressed audio in Tigris object storage plus the transcript
    in SQLite (`notes.db`). The original high-quality upload is never kept.
+4. **Messaging Channel (Telegram)** — connect Telegram via deep-linking;
+   send voice notes directly to the Telegram bot to have them transcribed
+   and stored into `notes.db` like web notes, or receive messages from the
+   server (`send_to_user`). State and links live in SQLite (`channels.db`).
 
 It is deployed to **Fly.io**, and the deploy runs automatically from GitHub
 Actions on every push to `main`.
@@ -28,8 +32,8 @@ Actions on every push to `main`.
 | Path | What it is | Why it exists |
 | --- | --- | --- |
 | `app.py` | Just app wiring: creates the Flask app, sets up Swagger docs, registers the blueprints below, and the 404 handler. No routes or storage logic live here anymore. | Kept intentionally tiny (~50 lines) so it's obvious at a glance what the app is made of. |
-| `routes/` | One file per feature's HTTP routes: `tasks.py` (`/toggle`, `/status`, `/api/logs*`), `canvas.py` (`/api/canvas`, GET/PUT), `notes.py` (`/api/notes*`), `pages.py` (`/`, `/canvas`, `/canvas/assets/<file>`). | Each route file only parses the request, calls into `services/`, and shapes the JSON response - no file/database code mixed in. |
-| `services/` | Storage and cross-cutting logic the routes call into: `tasks_db.py` (SQLite CRUD for tasks), `canvas_db.py` (SQLite for the canvas's single saved snapshot), `notes_db.py` (SQLite for note metadata), `object_storage.py` (Tigris via boto3 - upload/delete/presigned playback URLs), `audio_compression.py` (ffmpeg re-encode), `transcription.py` (Groq Whisper), `auth.py` (the `require_key` decorator), `time.py` (`local_now()`/`TIMEZONE`), `config.py` (`DATA_DIR`). | Keeps file/database/external-API code out of the route files, and means the same storage/service functions aren't duplicated across routes that need them. |
+| `routes/` | One file per feature's HTTP routes: `tasks.py` (`/toggle`, `/status`, `/api/logs*`), `canvas.py` (`/api/canvas`, GET/PUT), `notes.py` (`/api/notes*`), `telegram.py` (`/telegram/webhook`, `/api/channels/telegram/link`, `/api/channels/test`), `pages.py` (`/`, `/canvas`, `/canvas/assets/<file>`). | Each route file only parses the request, calls into `services/`, and shapes the JSON response - no file/database code mixed in. |
+| `services/` | Storage and cross-cutting logic the routes call into: `tasks_db.py` (SQLite CRUD for tasks), `canvas_db.py` (SQLite for the canvas's single saved snapshot), `notes_db.py` (SQLite for note metadata), `channels_db.py` (SQLite for Telegram links, one-time codes, seen updates), `channels.py` (channel abstraction & `send_to_user`), `telegram.py` (Telegram Bot API wrapper), `note_pipeline.py` (shared audio note ingest pipeline), `object_storage.py` (Tigris via boto3 - upload/delete/presigned playback URLs), `audio_compression.py` (ffmpeg re-encode), `transcription.py` (Groq Whisper), `auth.py` (the `require_key` decorator), `time.py` (`local_now()`/`TIMEZONE`), `config.py` (`DATA_DIR`). | Keeps file/database/external-API code out of the route files, and means the same storage/service functions aren't duplicated across routes that need them. |
 | `requirements.txt` | Python dependencies (`Flask`, `flask-swagger-ui`, `tzdata`, `groq`, `boto3`). `gunicorn` is installed separately in the Dockerfile for production. | Keeps the backend install minimal. `tzdata` ensures `zoneinfo` can find timezone data even on the slim base image, which doesn't reliably ship its own; `groq`/`boto3` are the Notes feature's transcription and Tigris clients. |
 | `static/` | A **plain HTML/CSS/JS** webpage — the login screen, Time Log view, and Notes tab, all in one file (`static/index.html`). Also holds `openapi.yaml`. | **No build step, no npm, no framework.** Flask serves this folder directly. Kept dependency-free on purpose so the main webpage stays trivial to edit and deploy. See "Why static/ and frontend/ are split" below. |
 | `static/index.html` | The actual webpage — inline `<style>` and inline `<script>`, talks to the API with `fetch`. | Single self-contained file; nothing to compile. |
@@ -100,6 +104,21 @@ Needs `GROQ_API_KEY` (transcription) and `AWS_ACCESS_KEY_ID` /
 set as env vars to fully work - without them, recording still runs
 client-side but saving a note fails with a clear error instead of a
 silent one.
+
+---
+
+## Channels: Telegram bot integration & channels.db
+
+Messaging integrations store their channel link states, one-time verification
+pairing codes, and processed webhook update IDs in SQLite (`channels.db`).
+Incoming voice notes from Telegram are downloaded, passed through the shared
+`services/note_pipeline.py` pipeline (Groq transcription + ffmpeg compression
++ Tigris upload), and stored into `notes.db`.
+
+Outbound messages are routed via `services/channels.py:send_to_user`, which
+currently sends messages through `services/telegram.py`. Requires
+`TELEGRAM_BOT_TOKEN`, `TELEGRAM_BOT_USERNAME`, and `TELEGRAM_WEBHOOK_SECRET`
+set as Fly secrets / environment variables.
 
 ---
 

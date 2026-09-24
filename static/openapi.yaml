@@ -307,6 +307,42 @@ paths:
         "401":
           $ref: "#/components/responses/Unauthorized"
 
+  /telegram/webhook:
+    post:
+      summary: Telegram webhook receiver
+      description: Receives updates (messages, commands, voice notes) from Telegram Bot API.
+      tags: [Channels]
+      security: []
+      responses:
+        "200":
+          description: Processed or acknowledged
+        "401":
+          description: Invalid secret header
+
+  /api/channels/telegram/link:
+    post:
+      summary: Create Telegram link code
+      description: Generates a 10-minute one-time code and link for pairing Telegram chat.
+      tags: [Channels]
+      responses:
+        "201":
+          description: Link code generated successfully
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+
+  /api/channels/test:
+    post:
+      summary: Send test channel message
+      description: Sends a test message to the user's linked Telegram channel.
+      tags: [Channels]
+      responses:
+        "200":
+          description: Message sent successfully
+        "400":
+          description: No channel linked or delivery failed
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+
 components:
   securitySchemes:
     ApiKeyHeader:

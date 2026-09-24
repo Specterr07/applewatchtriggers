@@ -369,6 +369,26 @@
 </div>
 
 <div class="view" id="view-notes">
+  <div class="channel-bar" style="display:flex; justify-content:space-between; align-items:center; background:var(--card); border:1px solid var(--border); border-radius:12px; padding:10px 14px; margin-bottom:12px;">
+    <div style="display:flex; align-items:center; gap:8px;">
+      <span style="font-size:18px;">✈️</span>
+      <span style="font-size:13px; font-weight:600; color:var(--text);">Telegram</span>
+    </div>
+    <div style="display:flex; gap:8px;">
+      <button onclick="sendTestChannelMessage()" style="width:auto; padding:6px 12px; font-size:12px; border-radius:8px; border:1px solid var(--border); background:transparent; color:var(--text);">Send Test</button>
+      <button onclick="connectTelegram()" style="width:auto; padding:6px 12px; font-size:12px; border-radius:8px; border:none; background:var(--accent); color:white; font-weight:600;">Connect</button>
+    </div>
+  </div>
+
+  <div id="channel-modal" style="display:none; position:fixed; inset:0; background:rgba(0,0,0,0.6); align-items:center; justify-content:center; z-index:200; padding:20px;">
+    <div class="box" style="background:var(--card); border:1px solid var(--border); border-radius:14px; padding:22px; width:100%; max-width:360px; text-align:center;">
+      <h3 style="margin-bottom:8px; font-size:18px;">Connect Telegram</h3>
+      <p style="color:var(--muted); font-size:13px; margin-bottom:16px;">Tap the link below to open Telegram and press <b>Start</b>. Link expires in 10 minutes.</p>
+      <div id="channel-link-box" style="margin-bottom:16px;"></div>
+      <button onclick="closeChannelModal()" style="width:100%; padding:10px; border-radius:8px; border:1px solid var(--border); background:transparent; color:var(--text);">Close</button>
+    </div>
+  </div>
+
   <div class="note-record-row">
     <button id="note-record-btn" onclick="toggleRecording()">🎤 Record a note</button>
     <button class="note-cancel-btn" id="note-cancel-btn" onclick="cancelRecording()">✕ Cancel</button>
@@ -880,6 +900,50 @@ async function deleteNote(id) {
   const list = document.getElementById("notes-list");
   if (!list.children.length) {
     list.innerHTML = '<p class="empty-msg" style="color:var(--muted); text-align:center;">No notes yet.</p>';
+  }
+}
+
+async function connectTelegram() {
+  try {
+    const res = await authedFetch("/api/channels/telegram/link", {
+      method: "POST",
+      headers: headers()
+    });
+    const data = await res.json();
+    if (!data.ok) {
+      alert(data.message || "Failed to generate link.");
+      return;
+    }
+    const box = document.getElementById("channel-link-box");
+    if (data.link_url) {
+      box.innerHTML = `<a href="${data.link_url}" target="_blank" rel="noopener noreferrer" style="display:inline-block; padding:12px 18px; border-radius:10px; background:var(--accent); color:white; font-weight:700; text-decoration:none;">Open in Telegram 🚀</a>`;
+    } else {
+      box.innerHTML = `<p style="color:var(--accent-2);">Code: <code>${data.code}</code> (Bot username not set)</p>`;
+    }
+    document.getElementById("channel-modal").style.display = "flex";
+  } catch (e) {
+    alert("Request failed - check your connection.");
+  }
+}
+
+function closeChannelModal() {
+  document.getElementById("channel-modal").style.display = "none";
+}
+
+async function sendTestChannelMessage() {
+  try {
+    const res = await authedFetch("/api/channels/test", {
+      method: "POST",
+      headers: headers()
+    });
+    const data = await res.json();
+    if (data.ok) {
+      alert("Test message sent! Check your Telegram.");
+    } else {
+      alert(data.message || "Could not send test message. Is Telegram linked?");
+    }
+  } catch (e) {
+    alert("Request failed - check your connection.");
   }
 }
 

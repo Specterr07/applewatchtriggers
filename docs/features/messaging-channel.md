@@ -205,14 +205,14 @@ once when registering the webhook).
 ## 3. Build
 
 Draft task list — each step works on its own:
-- [ ] Move notes pipeline into `services/note_pipeline.py`; web notes still work
-- [ ] Create bot in BotFather; set the 3 Fly secrets
-- [ ] `channels_db.py` + `channels.db` tables
-- [ ] `services/telegram.py` (send_message, download_voice)
+- [x] Move notes pipeline into `services/note_pipeline.py`; web notes still work
+- [x] Create bot in BotFather; set the 3 Fly secrets
+- [x] `channels_db.py` + `channels.db` tables
+- [x] `services/telegram.py` (send_message, download_voice)
 - [ ] Webhook route + register it with Telegram (`setWebhook`)
-- [ ] Link flow + "Connect Telegram" button in Notes tab
-- [ ] Voice note in → saved → "Saved ✅" reply
-- [ ] `send_to_user` + "Send test message" button
-- [ ] Update `PROJECT_STRUCTURE.md` and `ARCHITECTURE.md`
+- [x] Link flow + "Connect Telegram" button in Notes tab
+- [x] Voice note in → saved → "Saved ✅" reply
+- [x] `send_to_user` + "Send test message" button
+- [x] Update `PROJECT_STRUCTURE.md` and `ARCHITECTURE.md`
 
 **What actually got built / what I learned:**

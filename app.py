@@ -20,6 +20,7 @@ from routes.tasks import tasks_bp
 from routes.canvas import canvas_bp
 from routes.notes import notes_bp
 from routes.pages import pages_bp
+from routes.telegram import telegram_bp
 
 app = Flask(__name__)
 
@@ -38,6 +39,7 @@ app.register_blueprint(tasks_bp)
 app.register_blueprint(canvas_bp)
 app.register_blueprint(notes_bp)
 app.register_blueprint(pages_bp)
+app.register_blueprint(telegram_bp)
 
 
 # Catch-all for any URL that doesn't match a route above,
