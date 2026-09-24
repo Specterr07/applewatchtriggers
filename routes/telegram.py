@@ -111,7 +111,9 @@ def telegram_webhook():
         transcript = note.get("transcript", "")
         telegram.send_message(chat_id, f"Saved ✅\n\n{transcript}")
     except Exception as e:
-        telegram.send_message(chat_id, "Couldn't save that, try again")
+        import traceback
+        traceback.print_exc()
+        telegram.send_message(chat_id, f"Couldn't save that: {e}")
 
     return jsonify({"ok": True}), 200
 
