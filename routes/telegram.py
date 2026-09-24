@@ -24,8 +24,9 @@ def _is_code_valid(code_row, now_dt: datetime) -> bool:
     if not code_row or code_row["used_at"] is not None:
         return False
     try:
-        created_dt = datetime.strptime(code_row["created_at"], "%Y-%m-%d %H:%M:%S").replace(tzinfo=TIMEZONE)
-        return (now_dt - created_dt) <= timedelta(minutes=10)
+        created_dt = datetime.strptime(code_row["created_at"], "%Y-%m-%d %H:%M:%S")
+        diff = now_dt - created_dt
+        return timedelta(0) <= diff <= timedelta(minutes=10)
     except Exception:
         return False
 
