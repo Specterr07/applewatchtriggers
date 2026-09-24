@@ -1,14 +1,14 @@
 # Future Work
 
-Consolidated from every `PLAN_*.md` in this repo. See each plan file for
+Consolidated from every `docs/plans/PLAN_*.md` in this repo. See each plan file for
 full detail - this is the organized index, grouped the way work actually
 gets acted on.
 
 ## Already shipped (context, not pending work)
 
-- **Named Tasks + Bento Cards + Detail Page** - `PLAN_NAMED_TASKS_BENTO_CARDS.md`
-- **Server-side canvas persistence** - `PLAN_CANVAS_SAVE.md`
-- **Voice notes** (record → transcribe → compress → store) - `PLAN_VOICE_NOTES.md`
+- **Named Tasks + Bento Cards + Detail Page** - `docs/plans/PLAN_NAMED_TASKS_BENTO_CARDS.md`
+- **Server-side canvas persistence** - `docs/plans/PLAN_CANVAS_SAVE.md`
+- **Voice notes** (record → transcribe → compress → store) - `docs/plans/PLAN_VOICE_NOTES.md`
 
 ## Fully decided and ready to build
 
@@ -20,7 +20,7 @@ to be coded.
 
 ## Open questions to answer
 
-### LLM Tool-Calling for Reminders — `PLAN_LLM_REMINDERS.md`
+### LLM Tool-Calling for Reminders — `docs/plans/PLAN_LLM_REMINDERS.md`
 Nothing about this feature is decided beyond its name. Before it can
 move to "ready to build," these need answers:
 - What actually triggers a reminder (an LLM reading notes/tasks and
@@ -36,7 +36,7 @@ move to "ready to build," these need answers:
 - Whether it ships single-user (before the multi-user pivot) or waits
   for it, since Telegram/Web Push delivery is inherently per-account.
 
-### Multi-user pivot's remaining technical gaps — `PLAN_MULTI_USER.md`
+### Multi-user pivot's remaining technical gaps — `docs/plans/PLAN_MULTI_USER.md`
 These don't block anything **today** (the pivot itself is deferred -
 see below), but they're the open questions that will need answers
 before it can move from "decided in outline" to "ready to build":
@@ -55,7 +55,7 @@ before it can move from "decided in outline" to "ready to build":
 
 ## Explicitly deferred
 
-### Multi-user pivot — `PLAN_MULTI_USER.md`
+### Multi-user pivot — `docs/plans/PLAN_MULTI_USER.md`
 Decided to build **after everything else** on this list; the app stays
 Vivek-only until then. What's already decided about it (so it's not
 starting from zero when its turn comes):

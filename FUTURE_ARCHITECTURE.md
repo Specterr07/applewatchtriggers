@@ -2,11 +2,11 @@
 
 **This is speculative, not a build plan.** It shows what the current
 architecture (`ARCHITECTURE.md`) becomes if every decision already made
-in `PLAN_MULTI_USER.md` is applied - color-coded so it's obvious what's
+in `docs/plans/PLAN_MULTI_USER.md` is applied - color-coded so it's obvious what's
 actually decided (🟢 green), what's a firm decision but with real gaps in
 *how* (🟡 yellow, dashed), and what's being removed (⬛ grey). Nothing
 yellow was guessed at; each one is a listed open question in
-`PLAN_MULTI_USER.md` or `PLAN_LLM_REMINDERS.md`. This pivot is explicitly
+`docs/plans/PLAN_MULTI_USER.md` or `docs/plans/PLAN_LLM_REMINDERS.md`. This pivot is explicitly
 **deferred until after everything else** - this diagram exists so the
 gaps are visible now, not because it's happening next.
 
@@ -27,7 +27,7 @@ flowchart TB
         TasksRoute["routes/tasks.py"]
         CanvasRoute["routes/canvas.py"]
         NotesRoute["routes/notes.py"]
-        RemindersRoute["🟡 routes/reminders.py ?<br/>shape entirely undecided -<br/>see PLAN_LLM_REMINDERS.md"]
+        RemindersRoute["🟡 routes/reminders.py ?<br/>shape entirely undecided -<br/>see docs/plans/PLAN_LLM_REMINDERS.md"]
     end
 
     Watch --> TasksRoute
@@ -106,7 +106,7 @@ flowchart TB
 - What triggers a reminder at all, and therefore what
   `routes/reminders.py` (if that's even its name) looks like - this
   entire box is a placeholder for a feature with no spec yet
-  (`PLAN_LLM_REMINDERS.md`).
+  (`docs/plans/PLAN_LLM_REMINDERS.md`).
 - Telegram account-linking and Web Push's browser-permission/VAPID setup.
 
 **Removed (⬛):**

@@ -1,5 +1,14 @@
 # Project instructions
 
+## Follow the feature process (docs/PROCESS.md)
+
+Each new feature has one file in `docs/features/`, with three steps:
+Think → Draw → Build. **Don't write code for a feature unless its
+file's Status says 🔒 Locked** - if asked to, say what's still missing
+and offer to finish it. When a conversation answers one of a feature's
+open questions, tick it and write the answer in the file. Bug fixes and
+small tweaks don't need this.
+
 ## Keep PROJECT_STRUCTURE.md in sync
 
 Whenever a change adds, removes, or restructures a file, folder, route,
