@@ -1,6 +1,6 @@
 # Messaging channel (Telegram)
 
-**Status:** 🔒 Locked  <!-- 1. Think → 2. Draw → 🔒 Locked → 3. Build → ✅ Shipped -->
+**Status:** ✅ Shipped  <!-- 1. Think → 2. Draw → 🔒 Locked → 3. Build → ✅ Shipped -->
 
 ---
 
@@ -216,3 +216,10 @@ Draft task list — each step works on its own:
 - [x] Update `PROJECT_STRUCTURE.md` and `ARCHITECTURE.md`
 
 **What actually got built / what I learned:**
+- Extracted voice note processing into `services/note_pipeline.py:save_voice_note()`, shared cleanly across web uploads and incoming Telegram audio without code duplication.
+- Created `services/channels_db.py` backed by `channels.db` with `links`, `link_codes`, and `seen_updates` for idempotent webhook delivery and single-user pairing.
+- Telegram deep linking with `/start lnk_...` connects the web session to Telegram effortlessly without users ever dealing with API keys.
+- **Learnings:**
+  - Groq Whisper endpoint whitelists file extensions strictly (`[flac mp3 mp4 mpeg mpga m4a ogg opus wav webm]`). Telegram's default Opus audio needs to be named with `.ogg` or `.opus` (not `.oga`) when forwarded to Groq.
+  - Keep datetime arithmetic timezone-naive when working with `local_now()` formatted strings to avoid offset-naive vs offset-aware Python `TypeError`s during expiry checks.
+  - Telegram's `setWebhook` is mutually exclusive with long-polling (`getUpdates`). If a bot token is used with a polling process elsewhere, Telegram automatically drops the webhook. Keep dedicated bots for webhook integrations.
