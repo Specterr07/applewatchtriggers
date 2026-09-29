@@ -13,7 +13,7 @@ start it without the user's explicit approval.**
 ## Phases
 | Phase | Scope | State |
 |---|---|---|
-| M0 (partial) | pytest contract/routing tests (`tests/`) | Done — **CI gate not added** |
+| M0 | pytest contract/routing tests (`tests/`) + CI gate in `deploy.yml` | Done — CI gate not yet seen running on GitHub |
 | 2 | App shell, design system, auth gate, routing, lazy canvas | Done |
 | 3 | Home / Overview, Capture, guarded Start/Stop | Done |
 | 4 | Tasks + Time Log, task detail/edit/reopen/delete | Done |
@@ -61,7 +61,7 @@ Each phase ends with a STOP for the user's review (spec §10, "Review checkpoint
 
 ## Known issues / outstanding work
 - **Docker build not verified** locally (daemon was off); lockfile has Linux bindings.
-- **CI gate not added:** `.github/workflows/deploy.yml` still deploys without running tests.
+- **CI gate:** `.github/workflows/deploy.yml` now runs pytest + frontend lint/test/build before deploying; confirm the first run on GitHub is green.
 - Primary-button hover fades to ~4.2:1 contrast in light mode.
 - React Query `staleTime` 15s: user saw focus-driven refetches every ~18s; raising to 60s is an open question.
 - A 401 during a voice-note upload signs out and the recording is lost.
