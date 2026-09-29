@@ -7,14 +7,15 @@ import { createBrowserRouter } from 'react-router'
 import { AppShell } from '@/components/layout/AppShell'
 import { MorePage } from '@/components/layout/MorePage'
 import { NotFoundPage } from '@/components/layout/NotFoundPage'
-import { PlaceholderPage } from '@/components/layout/PlaceholderPage'
 import { RouteErrorPage } from '@/components/layout/RouteErrorPage'
 import { ROUTER_BASENAME } from '@/config'
 import { HomePage } from '@/features/home/HomePage'
 import { NotesPage } from '@/features/notes/NotesPage'
 import { SettingsPage } from '@/features/settings/SettingsPage'
+import { TelegramPage } from '@/features/telegram/TelegramPage'
 import { TasksPage } from '@/features/tasks/TasksPage'
 import { TimeLogPage } from '@/features/timelog/TimeLogPage'
+import { WatchPage } from '@/features/watch/WatchPage'
 
 // tldraw is large (~500 KB gzipped). Lazy-loading keeps it out of the
 // initial bundle; it's only downloaded when /canvas is opened.
@@ -35,15 +36,8 @@ export const router = createBrowserRouter(
         // Same pattern as tasks: NotesPage reads :noteId itself.
         { path: 'notes', element: <NotesPage />, children: [{ path: ':noteId' }] },
 
-        // Placeholders until their phase (spec §10).
-        {
-          path: 'integrations/watch',
-          element: <PlaceholderPage title="Apple Watch" description="Shortcut setup and recent start/stop activity." />,
-        },
-        {
-          path: 'integrations/telegram',
-          element: <PlaceholderPage title="Telegram" description="Connect Telegram and send voice notes to Sheev." />,
-        },
+        { path: 'integrations/watch', element: <WatchPage /> },
+        { path: 'integrations/telegram', element: <TelegramPage /> },
 
         { path: 'canvas', element: <CanvasPage /> },
         { path: 'settings', element: <SettingsPage /> },

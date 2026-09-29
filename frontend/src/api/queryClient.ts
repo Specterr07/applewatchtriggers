@@ -9,6 +9,8 @@ import { ApiError } from '@/api/client'
 export const QUERY_KEYS = {
   tasks: ['tasks'] as const,
   notes: ['notes'] as const,
+  // GET /status - only the Apple Watch screen reads it through the cache.
+  status: ['status'] as const,
 }
 
 export const queryClient = new QueryClient({

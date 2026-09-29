@@ -1,8 +1,8 @@
 # Claude Code handoff — frontend redesign
 
-**Status (2026-09-30):** Phases 2–5 of the frontend redesign are complete and
-committed. Next is Phase 6 (Apple Watch + integrations/settings) — **do not
-start it without the user's explicit approval.**
+**Status (2026-09-30):** Phases 2–6 of the frontend redesign are built. Phase 6
+(Apple Watch, Telegram, Settings, keyboard shortcuts) is **awaiting the user's
+review** — do not start Phase 7 without explicit approval.
 
 > **Next session: inspect the repository first.** Don't rely on earlier chat
 > context. Read, in order: this file → `docs/features/frontend-redesign.md`
@@ -13,12 +13,12 @@ start it without the user's explicit approval.**
 ## Phases
 | Phase | Scope | State |
 |---|---|---|
-| M0 | pytest contract/routing tests (`tests/`) + CI gate in `deploy.yml` | Done — CI gate not yet seen running on GitHub |
+| M0 | pytest contract/routing tests (`tests/`) + CI gate in `deploy.yml` | Done — green on the PR run (Specterr07/applewatchtriggers#1) |
 | 2 | App shell, design system, auth gate, routing, lazy canvas | Done |
 | 3 | Home / Overview, Capture, guarded Start/Stop | Done |
 | 4 | Tasks + Time Log, task detail/edit/reopen/delete | Done |
 | 5 | Notes + voice recording, playback, delete | Done |
-| 6 | Apple Watch screen, Telegram screen, full Settings | Not started |
+| 6 | Apple Watch screen, Telegram screen, full Settings, keyboard shortcuts (§6.2) | Built — awaiting review |
 | 7 | Canvas visual review | Not started |
 | 8–10 | Real-time UX, polish (shortcuts, perf/a11y audit), demo | Not started |
 | M5 | Cutover: React app to `/`, delete `static/index.html` | Not started |
@@ -47,7 +47,7 @@ Each phase ends with a STOP for the user's review (spec §10, "Review checkpoint
   multipart `audio`), `/api/notes/<id>` (DELETE), `/api/canvas` (GET/PUT),
   `/api/channels/*` — see `static/openapi.yaml`.
 - localStorage keys `task_logger_api_key`, `task_logger_session_last_active`
-  (shared with the old page). New: `sheev_theme`.
+  (shared with the old page). New: `sheev_theme`, `sheev_telegram_last_test`.
 
 ## Design decisions (see spec "Decisions")
 - Start/Stop always checks `/status` before `/toggle`; Stop never sends a name.
@@ -60,13 +60,13 @@ Each phase ends with a STOP for the user's review (spec §10, "Review checkpoint
 - Reopen shows a warning that it continues the original session.
 
 ## Known issues / outstanding work
-- **Docker build not verified** locally (daemon was off); lockfile has Linux bindings.
-- **CI gate:** `.github/workflows/deploy.yml` now runs pytest + frontend lint/test/build before deploying; confirm the first run on GitHub is green.
+- **Docker build not verified locally** (no daemon); Fly's remote builder built it successfully in the M0 deploy (run 36639850345).
 - Primary-button hover fades to ~4.2:1 contrast in light mode.
+- **No build version in Settings:** spec §5.3 asks for the build commit, but nothing in the build records one (the Docker context excludes `.git`). Needs a build arg — not done.
 - React Query `staleTime` 15s: user saw focus-driven refetches every ~18s; raising to 60s is an open question.
 - A 401 during a voice-note upload signs out and the recording is lost.
 - Groq/Tigris success paths were only verified with a scratch stub harness.
 
 ## Validation at handoff
-pytest 27 passed · Vitest 46 passed · typecheck/lint clean · initial JS 172.7 KB gzipped (budget 250 KB).
+pytest 27 passed · Vitest 63 passed · typecheck/lint clean · initial JS 178.2 KB gzipped (budget 250 KB) · Phase 6 browser checks 84/86 (2 environment-only).
 Run: `.venv/bin/python -m pytest` and `cd frontend && npm test && npm run build && npm run lint`.

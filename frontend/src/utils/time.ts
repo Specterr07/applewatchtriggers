@@ -74,6 +74,13 @@ export function toDateKey(clock: WallClock): string {
   return `${clock.year}-${pad(clock.month)}-${pad(clock.day)}`
 }
 
+// A WallClock written the way the server writes timestamps, so browser-side
+// moments (e.g. "last test sent") can use the same formatters.
+export function toServerTimestampString(clock: WallClock): string {
+  const pad = (value: number) => String(value).padStart(2, '0')
+  return `${toDateKey(clock)} ${pad(clock.hour)}:${pad(clock.minute)}:${pad(clock.second)}`
+}
+
 // Whole calendar days from `earlier` to `later` (0 = same day, 1 = yesterday...).
 function daysBetween(earlier: WallClock, later: WallClock): number {
   const dayStart = (clock: WallClock) => Date.UTC(clock.year, clock.month - 1, clock.day)

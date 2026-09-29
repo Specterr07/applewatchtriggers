@@ -9,7 +9,7 @@ they exist) for what's coming.
 flowchart TB
     Watch["📱 Apple Watch Shortcut<br/>GET /toggle?key=..."]
     Browser["🌐 Browser<br/>static/index.html (old page, at /)<br/>Time Log + Notes tabs"]
-    CanvasApp["🌐 Browser<br/>React app at /app<br/>shell + canvas (lazy tldraw);<br/>other screens being migrated"]
+    CanvasApp["🌐 Browser<br/>React app at /app<br/>all screens built; canvas lazy-loaded;<br/>old page still at / until cutover"]
     TelegramUser["📱 Me in Telegram"]
     TelegramServers["Telegram Servers<br/>(Bot API)"]
 
@@ -54,6 +54,9 @@ flowchart TB
     Browser -->|"X-API-Key header"| TasksRoute
     Browser -->|"X-API-Key header"| NotesRoute
     Browser -->|"X-API-Key header"| TelegramRoute
+    CanvasApp -->|"X-API-Key header"| TasksRoute
+    CanvasApp -->|"X-API-Key header"| NotesRoute
+    CanvasApp -->|"X-API-Key header"| TelegramRoute
     Browser -->|"loads page"| PagesRoute
     PagesRoute -.->|"serves compiled app,<br/>which the browser then runs as"| CanvasApp
     CanvasApp -->|"X-API-Key header<br/>(same localStorage keys<br/>as the old page)"| CanvasRoute
@@ -244,9 +247,10 @@ memory for the duration of the request.
   disagree - **Notes** (record from Capture, search loaded transcripts,
   play, delete; the recorder keeps a failed recording for Retry and the
   player refreshes an expired playback link once), the Capture menu,
-  Settings,
+  **Apple Watch** (API reachability and next press from `/status`, the
+  Shortcut URL, recent start/stop events), **Telegram** (connect link or
+  code, test message), Settings, desktop keyboard shortcuts,
   and the **Canvas**, whose tldraw bundle is lazy-loaded only when
   `/app/canvas` opens. Start/Stop always asks `/status` first and only then
   calls `/toggle`, so a stale screen can't flip the Watch's task the wrong
-  way; the Watch-facing endpoints themselves are unchanged. Screens not built
-  yet show a placeholder linking back to the old page.
+  way; the Watch-facing endpoints themselves are unchanged.

@@ -2,6 +2,7 @@ import { Suspense } from 'react'
 import { Outlet, useLocation } from 'react-router'
 
 import { BottomNav } from '@/components/layout/BottomNav'
+import { KeyboardShortcuts } from '@/components/layout/KeyboardShortcuts'
 import { CANVAS } from '@/components/layout/navItems'
 import { Sidebar } from '@/components/layout/Sidebar'
 import { Spinner } from '@/components/ui/Spinner'
@@ -24,6 +25,7 @@ export function AppShell() {
   return (
     <RecorderProvider>
       <CaptureProvider bottomNavVisible={!hidesBottomNav}>
+        <KeyboardShortcuts />
         <div className="min-h-dvh md:flex">
           <a
             href="#main"
