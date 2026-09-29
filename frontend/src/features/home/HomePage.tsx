@@ -85,8 +85,10 @@ export function HomePage() {
       )}
 
       {/* Phones: session, today, activity. Desktop: session and activity in a
-          wide column, today's numbers in a narrow column beside them. */}
-      <div className="grid gap-6 lg:grid-cols-3 lg:grid-rows-[auto_1fr] lg:gap-x-8">
+          wide column, today's numbers in a narrow column beside them.
+          grid-cols-1 (not the implicit column) so the column is exactly the
+          screen's width and long task names wrap or truncate inside it. */}
+      <div className="grid grid-cols-1 gap-6 lg:grid-cols-3 lg:grid-rows-[auto_1fr] lg:gap-x-8">
         <div className="lg:col-span-2">
           <ActiveSessionCard
             activeTask={activeTask}
@@ -132,7 +134,7 @@ function RetryButton({ onClick }: { onClick: () => void }) {
 // Grey placeholders in the same layout, so the page doesn't jump when data arrives.
 function HomeSkeleton() {
   return (
-    <div role="status" aria-label="Loading" className="grid gap-6 lg:grid-cols-3 lg:gap-x-8">
+    <div role="status" aria-label="Loading" className="grid grid-cols-1 gap-6 lg:grid-cols-3 lg:gap-x-8">
       <Skeleton className="h-44 rounded-card lg:col-span-2" />
       <div className="grid grid-cols-3 gap-3 lg:col-start-3 lg:row-span-2 lg:row-start-1 lg:grid-cols-1">
         <Skeleton className="h-20 rounded-card" />

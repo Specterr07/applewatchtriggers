@@ -19,6 +19,7 @@ review** — do not start Phase 7 without explicit approval.
 | 4 | Tasks + Time Log, task detail/edit/reopen/delete | Done |
 | 5 | Notes + voice recording, playback, delete | Done |
 | 6 | Apple Watch screen, Telegram screen, full Settings, keyboard shortcuts (§6.2) | Built — awaiting review |
+| 6.5 | Home + Tasks phone layouts: no sideways scroll at 320–430px (explicit single-column grids, task cards wrap instead of truncating, header actions wrap) | Built — awaiting review |
 | 7 | Canvas visual review | Not started |
 | 8–10 | Real-time UX, polish (shortcuts, perf/a11y audit), demo | Not started |
 | M5 | Cutover: React app to `/`, delete `static/index.html` | Not started |

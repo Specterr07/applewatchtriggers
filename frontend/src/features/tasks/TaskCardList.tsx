@@ -6,23 +6,31 @@ import { formatTaskDuration, formatTaskTimeRange } from '@/utils/tasks'
 import { formatShortDate, type WallClock } from '@/utils/time'
 
 // Tasks as tappable cards - phones get one column, tablets two. Each card
-// opens the task's detail.
+// opens the task's detail. The explicit grid-cols-1 keeps the column at the
+// screen's width; without it, a long task name would widen the whole list.
 export function TaskCardList({ tasks, now }: { tasks: Task[]; now: WallClock }) {
   return (
-    <ul className="grid gap-2 md:grid-cols-2 md:gap-3">
+    <ul className="grid grid-cols-1 gap-2 md:grid-cols-2 md:gap-3">
       {tasks.map((task) => (
         <li key={task.id}>
           <Link
             to={`/tasks/${task.id}`}
-            className="flex min-h-11 items-center gap-4 rounded-card border border-border bg-surface px-4 py-3 shadow-card transition-colors hover:bg-surface-muted"
+            className="flex min-h-11 items-start gap-3 rounded-card border border-border bg-surface px-4 py-3 shadow-card transition-colors hover:bg-surface-muted sm:gap-4"
           >
             <div className="min-w-0 flex-1">
-              <div className="flex items-center gap-2">
-                <p className="truncate font-medium">{task.name}</p>
-                {task.end === null && <TaskStatus task={task} />}
-              </div>
-              <p className="mt-0.5 truncate text-sm text-secondary">
-                <span className="tabular-nums">#{task.id}</span> · {formatShortDate(task.date)} · {formatTaskTimeRange(task)}
+              {/* Up to two lines; wrap-anywhere lets a URL or other unbroken
+                  name break instead of pushing the card wider. */}
+              <p className="line-clamp-2 font-medium wrap-anywhere">{task.name}</p>
+              {/* Wraps as a sentence on narrow phones instead of cutting off
+                  the end time; the time range itself never splits. */}
+              <p className="mt-1 text-sm text-secondary">
+                {task.end === null && (
+                  <span className="mr-2 inline-block align-middle">
+                    <TaskStatus task={task} />
+                  </span>
+                )}
+                <span className="tabular-nums">#{task.id}</span> · {formatShortDate(task.date)} ·{' '}
+                <span className="whitespace-nowrap">{formatTaskTimeRange(task)}</span>
               </p>
             </div>
             <p className="shrink-0 text-md font-semibold tabular-nums">{formatTaskDuration(task, now)}</p>
