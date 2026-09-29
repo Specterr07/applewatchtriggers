@@ -15,7 +15,8 @@ flowchart TB
 
     subgraph CICD["GitHub Actions — .github/workflows/deploy.yml"]
         direction LR
-        Push["push to main"] --> FlyDeploy["flyctl deploy --remote-only"]
+        Push["push to main<br/>(PRs: test job only)"] --> TestJob["test job<br/>pytest · npm ci · lint<br/>npm test · npm run build"]
+        TestJob -->|"only if it passes"| FlyDeploy["flyctl deploy --remote-only"]
     end
 
     subgraph Docker["Dockerfile — multi-stage build"]
@@ -113,9 +114,13 @@ flowchart TB
 ## Written summary
 
 ### Build & deploy
-Every push to `main` runs `.github/workflows/deploy.yml`, which just runs
-`flyctl deploy --remote-only` - Fly's remote builder does the actual Docker
-build, using the `FLY_API_TOKEN` GitHub secret.
+Every push to `main` (and every pull request into `main`) runs
+`.github/workflows/deploy.yml`. Its `test` job runs `pytest` (including the
+Watch contract tests) and the frontend's `npm ci`, `npm run lint`,
+`npm test` and `npm run build`. Only if that passes, and only for a push to
+`main`, the `deploy` job runs `flyctl deploy --remote-only` - Fly's remote
+builder does the actual Docker build, using the `FLY_API_TOKEN` GitHub
+secret.
 
 **The Dockerfile is two stages** because the React app (`frontend/`, which
 includes the tldraw canvas) needs Node, npm, and a real build step, but
