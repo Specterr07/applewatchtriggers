@@ -1,0 +1,4 @@
+# Development-only tools - not installed in the Docker image.
+# Install locally with: .venv/bin/pip install -r requirements-dev.txt
+-r requirements.txt
+pytest==9.1.1

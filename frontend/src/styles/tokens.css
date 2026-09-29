@@ -1,0 +1,70 @@
+/*
+  Design tokens - docs/features/frontend-redesign.md §7.1.
+
+  Components never use these directly or use raw hex values; they use the
+  semantic Tailwind classes mapped in globals.css (bg-surface,
+  text-secondary, ...), so switching theme is just swapping these values.
+
+  Contrast notes (WCAG AA, checked 2026-09-30):
+  - White text on --accent / --success / --danger FAILS AA, so filled
+    buttons and colored text use the "-strong" variants instead.
+  - --text-secondary passes only on --surface (white); directly on the
+    page --background or on --surface-muted fills, use --text-secondary-on-bg.
+  - Fills and text are separate tokens where one colour can't do both in dark
+    mode: --accent-strong / --danger-strong are *fills* (white text on top,
+    same in both themes); --accent-text / --danger-text are for coloured
+    text, icons and borders. (No single dark red passes as both a white-text
+    fill and as text on the dark surface.)
+*/
+
+:root {
+  --background: #f7f8fa;
+  --surface: #ffffff;
+  --surface-muted: #f1f2f4;
+  --text: #172b4d;
+  --text-secondary: #6b778c;
+  --text-secondary-on-bg: #5e6c84;
+  --border: #dfe1e6;
+
+  --accent: #5b8cff;
+  --accent-strong: #3366e8;
+  --accent-text: #3366e8;
+  --success: #22c55e;
+  --success-strong: #15803d;
+  --danger: #ef4444;
+  --danger-strong: #dc2626;
+  --danger-text: #dc2626;
+
+  /* Text/icons placed on top of a -strong fill. */
+  --on-accent: #ffffff;
+  /* Dimmed backdrop behind sheets and dialogs. */
+  --overlay: rgb(9 30 66 / 0.45);
+
+  --elevation-card: 0 1px 2px 0 rgb(23 43 77 / 0.06);
+  --elevation-raised: 0 16px 40px -12px rgb(23 43 77 / 0.25), 0 2px 6px 0 rgb(23 43 77 / 0.08);
+}
+
+.dark {
+  --background: #0f1115;
+  --surface: #171a21;
+  --surface-muted: #1e222b;
+  --text: #e6e9ef;
+  --text-secondary: #9aa3b2;
+  --text-secondary-on-bg: #9aa3b2;
+  --border: #2a2f3a;
+
+  --accent: #5b8cff;
+  --accent-strong: #3366e8;
+  --accent-text: #7da2ff;
+  --success: #22c55e;
+  --success-strong: #4ade80;
+  --danger: #ef4444;
+  --danger-strong: #dc2626;
+  --danger-text: #f87171;
+
+  --on-accent: #ffffff;
+  --overlay: rgb(0 0 0 / 0.6);
+
+  --elevation-card: none;
+  --elevation-raised: 0 16px 40px -12px rgb(0 0 0 / 0.6), 0 0 0 1px rgb(255 255 255 / 0.04);
+}

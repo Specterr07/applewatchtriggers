@@ -1,12 +1,14 @@
-# ---- Stage 1: build the React/tldraw canvas app ----
+# ---- Stage 1: build the React app (frontend/, including the tldraw canvas) ----
 # This stage installs Node + npm packages and runs the Vite build.
 # None of this (node_modules, npm, source .tsx files) ends up in the
 # final image - only the compiled output does.
 FROM node:20-slim AS frontend-build
 
 WORKDIR /frontend
-COPY frontend/package.json frontend/package-lock.json* ./
-RUN npm install
+COPY frontend/package.json frontend/package-lock.json ./
+# `npm ci` installs exactly what package-lock.json records (and fails if
+# it's out of date), so every deploy builds with the same versions.
+RUN npm ci
 
 COPY frontend/ .
 RUN npm run build
@@ -33,9 +35,10 @@ COPY routes ./routes
 COPY services ./services
 COPY static ./static
 
-# Copy ONLY the compiled canvas app from stage 1 - no Node, no npm,
-# no source files end up in this final image.
-COPY --from=frontend-build /frontend/dist ./canvas_dist
+# Copy ONLY the compiled React app from stage 1 - no Node, no npm,
+# no source files end up in this final image. routes/pages.py serves it
+# at /app/... from this web_dist/ folder.
+COPY --from=frontend-build /frontend/dist ./web_dist
 
 EXPOSE 8080
 

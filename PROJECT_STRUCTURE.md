@@ -6,8 +6,8 @@ A small **Flask** app that does three things:
    start/end a task, stored as one row per task in SQLite (`tasks.db`) so
    every task has a stable id - what a bento-card grid and a per-task detail
    page link to. Durations are calculated automatically.
-2. **Canvas** — a separate React + tldraw drawing surface, mounted at `/canvas`.
-   Its drawing is saved server-side (`GET`/`PUT /api/canvas`, backed by
+2. **Canvas** — a tldraw drawing surface inside the new React app
+   (`/app/canvas`; the old `/canvas` URL redirects there). Its drawing is saved server-side (`GET`/`PUT /api/canvas`, backed by
    `canvas.db`) so the same canvas shows up on any device, not just the
    browser that drew it.
 3. **Notes** — record a voice note in the browser; the server transcribes it
@@ -22,6 +22,12 @@ A small **Flask** app that does three things:
 It is deployed to **Fly.io**, and the deploy runs automatically from GitHub
 Actions on every push to `main`.
 
+**Frontend migration in progress** (`docs/features/frontend-redesign.md`):
+the old single-file webpage (`static/index.html`) still serves `/`, while a
+new React app is being built at `/app` one phase at a time. Once the new app
+does everything the old page does, it moves to `/` and `static/index.html`
+is deleted.
+
 - **Repo:** https://github.com/Specterr07/applewatchtriggers
 - **Live app:** https://applewatchtriggers.fly.dev
 
@@ -32,17 +38,21 @@ Actions on every push to `main`.
 | Path | What it is | Why it exists |
 | --- | --- | --- |
 | `app.py` | Just app wiring: creates the Flask app, sets up Swagger docs, registers the blueprints below, and the 404 handler. No routes or storage logic live here anymore. | Kept intentionally tiny (~50 lines) so it's obvious at a glance what the app is made of. |
-| `routes/` | One file per feature's HTTP routes: `tasks.py` (`/toggle`, `/status`, `/api/logs*`), `canvas.py` (`/api/canvas`, GET/PUT), `notes.py` (`/api/notes*`), `telegram.py` (`/telegram/webhook`, `/api/channels/telegram/link`, `/api/channels/test`), `pages.py` (`/`, `/canvas`, `/canvas/assets/<file>`). | Each route file only parses the request, calls into `services/`, and shapes the JSON response - no file/database code mixed in. |
+| `routes/` | One file per feature's HTTP routes: `tasks.py` (`/toggle`, `/status`, `/api/logs*`), `canvas.py` (`/api/canvas`, GET/PUT), `notes.py` (`/api/notes*`), `telegram.py` (`/telegram/webhook`, `/api/channels/telegram/link`, `/api/channels/test`), `pages.py` (`/` → old webpage, `/app` + `/app/<path>` → the React app's `index.html`, `/app/assets/<file>` → its built files, `/canvas` → redirect to `/app/canvas`). Only that explicit list of page URLs returns HTML; everything else still gets `app.py`'s JSON 404. | Each route file only parses the request, calls into `services/`, and shapes the JSON response - no file/database code mixed in. |
 | `services/` | Storage and cross-cutting logic the routes call into: `tasks_db.py` (SQLite CRUD for tasks), `canvas_db.py` (SQLite for the canvas's single saved snapshot), `notes_db.py` (SQLite for note metadata), `channels_db.py` (SQLite for Telegram links, one-time codes, seen updates), `channels.py` (channel abstraction & `send_to_user`), `telegram.py` (Telegram Bot API wrapper), `note_pipeline.py` (shared audio note ingest pipeline), `object_storage.py` (Tigris via boto3 - upload/delete/presigned playback URLs), `audio_compression.py` (ffmpeg re-encode), `transcription.py` (Groq Whisper), `auth.py` (the `require_key` decorator), `time.py` (`local_now()`/`TIMEZONE`), `config.py` (`DATA_DIR`). | Keeps file/database/external-API code out of the route files, and means the same storage/service functions aren't duplicated across routes that need them. |
+| `requirements-dev.txt` | Development-only Python tools (`pytest`), on top of `requirements.txt`. Install with `.venv/bin/pip install -r requirements-dev.txt`. | Keeps test tooling out of the production image. |
+| `tests/` | pytest suite: `test_watch_contract.py` pins the Apple Watch contract (`/toggle`, `/status`, `?key=` + `X-API-Key`, response shapes, 401s); `test_page_routing.py` checks which URLs return the React app vs. JSON 404s, the `/canvas` redirect, `/`, and `/docs`. `conftest.py` points `DATA_DIR` at a temp folder and sets a test `API_KEY` before the app is imported. Run with `.venv/bin/python -m pytest`. | The Watch Shortcut can't be updated alongside a deploy, so its contract needs a guard; the migration changes page routing, which must never swallow API errors. |
+| `pytest.ini` | pytest config: test folder, and the repo root on the import path so tests can `import app`. | So `python -m pytest` works from the repo root with no extra flags. |
 | `requirements.txt` | Python dependencies (`Flask`, `flask-swagger-ui`, `tzdata`, `groq`, `boto3`). `gunicorn` is installed separately in the Dockerfile for production. | Keeps the backend install minimal. `tzdata` ensures `zoneinfo` can find timezone data even on the slim base image, which doesn't reliably ship its own; `groq`/`boto3` are the Notes feature's transcription and Tigris clients. |
-| `static/` | A **plain HTML/CSS/JS** webpage — the login screen, Time Log view, and Notes tab, all in one file (`static/index.html`). Also holds `openapi.yaml`. | **No build step, no npm, no framework.** Flask serves this folder directly. Kept dependency-free on purpose so the main webpage stays trivial to edit and deploy. See "Why static/ and frontend/ are split" below. |
-| `static/index.html` | The actual webpage — inline `<style>` and inline `<script>`, talks to the API with `fetch`. | Single self-contained file; nothing to compile. |
+| `static/` | The **old** plain HTML/CSS/JS webpage (`static/index.html`) plus `openapi.yaml`. | Flask serves this folder directly. `index.html` is being replaced by the React app in `frontend/` - see "static/ and frontend/: the migration" below. `openapi.yaml` stays. |
+| `static/index.html` | The old webpage — login, Time Log and Notes in one file with inline `<style>`/`<script>`; its Canvas tab links to `/canvas` (which now redirects into the new app). | Stays at `/` until the new app reaches parity, so there's always a working app. Deleted at cutover. |
 | `static/openapi.yaml` | The OpenAPI 3 contract for the API. Flask serves it at `/static/openapi.yaml`, and `flask-swagger-ui` renders it as browsable docs at `/docs`. | This is the file a frontend engineer reads to build against the API without opening `app.py`. |
-| `frontend/` | A **separate** React + Vite + **tldraw** app — the `/canvas` feature only. Requires npm and a build step. Contains: `index.html` (Vite entry), `main.tsx` (mounts React into `#root`), `App.tsx` (the tldraw canvas - loads its snapshot from `GET /api/canvas` on mount, debounce-saves via `PUT /api/canvas` a few seconds after each edit, plus the "Back to Task Logger" link), `vite-env.d.ts` (Vite ambient types), `package.json` / `package-lock.json`, `vite.config.ts` (`base: '/canvas/'`), and `tsconfig*.json`. | tldraw ships as a React SDK, so this part genuinely needs a bundler. It is built in an isolated Docker stage and only its compiled output is copied into the final image. See "Why static/ and frontend/ are split" below. |
-| `Dockerfile` | **Multi-stage build.** Stage 1 (`node:20-slim`) runs `npm install` + `npm run build` on `frontend/` and produces `frontend/dist`. Stage 2 (`python:3.12-slim`) `apt-get install`s `ffmpeg`, installs Python deps, copies `app.py`, `routes/`, `services/`, `static/`, and **only** `frontend/dist` (as `canvas_dist/`), then runs gunicorn (`--timeout 120`, longer than the 30s default - `POST /api/notes` does upload + transcription + compression + a Tigris upload in one request). | Node and npm never reach the production image — only the compiled canvas JS/CSS does. This is why `frontend/` can have heavy build tooling without bloating the deployed app. `ffmpeg` isn't in `python:3.12-slim` by default, so Notes needs it installed explicitly. |
-| `fly.toml` | Fly.io app config: app name, region (`sin`), the persistent volume mounted at `/data`, `DATA_DIR=/data`, `TIMEZONE=Asia/Kolkata`, and the HTTP service on port 8080. Does **not** list `GROQ_API_KEY` / `AWS_ACCESS_KEY_ID` / `AWS_SECRET_ACCESS_KEY` / `AWS_ENDPOINT_URL_S3` / `BUCKET_NAME` - those are Fly secrets (`fly secrets set ...`), kept out of this (git-tracked) file the same way `API_KEY` already is. | `tasks.db`, `canvas.db`, and `notes.db` all live on the Fly volume (`/data`), **not** in the image or git, so data survives redeploys. `TIMEZONE` fixes timestamps to your local time regardless of the container's own (UTC) clock. |
+| `frontend/` | The **new React app** (React 19 + TypeScript + Vite + Tailwind CSS v4), served at `/app`. Root: `index.html` (Vite entry + a tiny inline script that applies the saved theme before first paint), `vite.config.ts` (`base: '/app/'`, `@/` → `src/` alias, dev proxy to Flask on :8080), `package.json` / `package-lock.json`, `tsconfig*.json`. Code lives in `src/` (below). | One app replaces both old frontends, with shared components, a design system, and real URLs. Built in an isolated Docker stage; only its compiled output reaches the final image. |
+| `frontend/src/` | `main.tsx` (mounts React), `App.tsx` (providers + router only), `router.tsx` (every screen's URL; unbuilt screens are placeholders), `config.ts` (router base, localStorage keys, `SERVER_TIMEZONE`, breakpoints). `api/` - the only code that calls `fetch` (`client.ts` handles the API key, the `{ok, message}` envelope, and 401 → sign-out; `tasks.ts` (`/status`, `/toggle`, `/api/logs`, `PATCH`/`DELETE /api/logs/<id>`), `notes.ts` (`GET`/`DELETE /api/notes`, and the voice-note upload - `POST /api/notes` via XMLHttpRequest so the UI can show the real "uploaded -> now transcribing" moment), `canvas.ts`; `queryClient.ts` - React Query setup and cache keys). `types/` - API response shapes (`task.ts`, `note.ts`, `api.ts`). `hooks/` - `useTasks` / `useNotes` (cached server data), `useGuardedToggle` (Start/Stop: checks `/status` before `/toggle`, never sends a name on Stop), `useTaskMutations` (edit/delete; reopening re-checks `/status` so two tasks can never be running), `useDeleteNote`, `useCloseDetail` (back from a detail view), `useElapsedSeconds` (local recording timer), `useNow` (server-timezone clock for live timers), `useTheme`, `useMediaQuery`. `features/` - one folder per area: `home/` (Overview: active session + live timer, today's stats, recent activity; `homeStats.ts` holds the calculations), `tasks/` (Tasks = *what* you worked on: search, Active/Completed filter, 50-at-a-time client-side "Show more", cards on phone/tablet and a table on desktop; `/tasks/:id` detail with edit, reopen, Start again, Stop and delete - a drawer with a sidebar, full-screen on phones), `timelog/` (Time Log = *when*: Today / 7 / 30 days / All, grouped by start day with daily totals; `timeLog.ts` holds the range/grouping logic), `notes/` (voice notes: `recorderController.ts` is the recording state machine - idle / requesting / recording / uploading / processing / success / error, keeping a failed recording for Retry - wrapped by `RecorderProvider` for the whole app; `RecorderPanel` + `RecorderStatusPill`; the Notes list with transcript search, note detail with playback/copy/delete, and `audioRecovery.ts` / `useNoteAudio.ts`, which refresh expired playback links once and then report a real failure), `capture/` (Capture menu - start/stop a task, record a voice note, open the canvas - plus the "Start a task" sheet, opened from anywhere via `CaptureProvider`), `auth/` (sign-in gate, same session rules and keys as the old page), `canvas/` (lazy-loaded tldraw screen + save logic), `settings/`. `components/ui/` - reusable primitives (Button incl. `danger`, Input, SearchInput, Card, Sheet, Dialog, ResponsiveDialog, Drawer, ConfirmDialog, SegmentedControl, StatusPill, Spinner, Skeleton, EmptyState, Toaster). `components/layout/` - AppShell, Sidebar, BottomNav, nav config, Page frame, DetailScreen (phone full-screen detail), placeholder/404/error pages. `utils/` - `time.ts` (parses the backend's timezone-less timestamps by hand - never `new Date(string)`; date keys, day headings, form conversions), `tasks.ts` (minutes worked per task - the one calculation Home, Tasks and Time Log all share), `notifyError.ts`, safe localStorage, session, `cn()` class helper. `*.test.ts` files next to the code they test run with vitest (`npm test`). `styles/` - `tokens.css` (design tokens, light + dark) and `globals.css` (Tailwind theme mapping). | Folder layout and rules come from `docs/features/frontend-redesign.md` §8. |
+| `Dockerfile` | **Multi-stage build.** Stage 1 (`node:20-slim`) runs `npm ci` + `npm run build` on `frontend/` and produces `frontend/dist`. Stage 2 (`python:3.12-slim`) `apt-get install`s `ffmpeg`, installs Python deps, copies `app.py`, `routes/`, `services/`, `static/`, and **only** `frontend/dist` (as `web_dist/`), then runs gunicorn (`--timeout 120`, longer than the 30s default - `POST /api/notes` does upload + transcription + compression + a Tigris upload in one request). | Node and npm never reach the production image — only the compiled app's JS/CSS does. This is why `frontend/` can have heavy build tooling without bloating the deployed app. `ffmpeg` isn't in `python:3.12-slim` by default, so Notes needs it installed explicitly. |
+| `fly.toml` | Fly.io app config: app name, region (`sin`), the persistent volume mounted at `/data`, `DATA_DIR=/data`, `TIMEZONE=Asia/Kolkata`, and the HTTP service on port 8080. Does **not** list `GROQ_API_KEY` / `AWS_ACCESS_KEY_ID` / `AWS_SECRET_ACCESS_KEY` / `AWS_ENDPOINT_URL_S3` / `BUCKET_NAME` - those are Fly secrets (`fly secrets set ...`), kept out of this (git-tracked) file the same way `API_KEY` already is. | `tasks.db`, `canvas.db`, and `notes.db` all live on the Fly volume (`/data`), **not** in the image or git, so data survives redeploys. `TIMEZONE` fixes timestamps to your local time regardless of the container's own (UTC) clock. The React app reads timestamps in the same zone, so `SERVER_TIMEZONE` in `frontend/src/config.ts` must match it. |
 | `.github/workflows/deploy.yml` | GitHub Actions workflow: on push to `main`, install `flyctl`, run `flyctl deploy --remote-only`. Uses the `FLY_API_TOKEN` secret. | Automates what used to be a manual `fly deploy`. |
-| `.gitignore` | Excludes every `*.db` file (`tasks.db`/`canvas.db`/`notes.db` - real data, only ever meant to live on the Fly volume), Python caches, `.venv/`, editor folders, `.env`, and the generated frontend output (`frontend/node_modules/`, `frontend/dist/`, `*.tsbuildinfo`, `canvas_dist/`). | Everything listed is either a local/build artifact or real runtime data - neither belongs in git. |
+| `.gitignore` | Excludes every `*.db` file (`tasks.db`/`canvas.db`/`notes.db` - real data, only ever meant to live on the Fly volume), Python caches, `.venv/`, editor folders, `.env`, and the generated frontend output (`frontend/node_modules/`, `frontend/dist/`, `*.tsbuildinfo`, `web_dist/`). | Everything listed is either a local/build artifact or real runtime data - neither belongs in git. |
 | `CLAUDE.md` | Standing instructions for Claude Code working in this repo: keep this file (`PROJECT_STRUCTURE.md`) in sync with any change that adds/removes/restructures a file/folder/route/service/database, as part of that same change; plus a workaround for a local-preview tooling quirk unrelated to this app's own code. | So an out-of-date structure doc gets caught and fixed immediately, and so a fresh session doesn't waste time rediscovering a known tooling gotcha. |
 | `GEMINI.md` | A symlink to `CLAUDE.md` so that Antigravity agents automatically discover and follow the exact same standing project instructions as Claude. | Ensures consistency across different AI assistants without maintaining duplicate rule files. |
 | `ARCHITECTURE.md` | A Mermaid diagram + written summary of what's actually deployed right now (build pipeline, Flask blueprints, the three SQLite databases, Tigris/Groq, both clients) - verified against the real code, not memory. | A single "how does this all fit together, and why" reference, separate from this file's per-path table. |
@@ -50,31 +60,31 @@ Actions on every push to `main`.
 | `docs/` | `PROCESS.md` (the 3-step Think → Draw → Build process), `STANDARDS.md` (naming/file conventions), and `features/` (one file per feature, plus `_template.md`). | Organizes all structural plans, feature docs, and codebase conventions in one place. |
 | `TODO.md` | The consolidated future-work list, grouped into what's ready to build, open questions, and what's explicitly deferred (the multi-user pivot) - built from the `docs/plans/` files above. | One place to see what's next without re-reading every plan file. |
 | `FUTURE_ARCHITECTURE.md` | A second Mermaid diagram showing what `ARCHITECTURE.md` becomes after the multi-user pivot, color-coded: decided, genuinely undecided, and removed (Apple Push). Speculative, not a build plan - the pivot itself is deferred. | Makes the gaps in the multi-user plan visible without pretending they're resolved. |
-| `.dockerignore` | Keeps `node_modules/`, `dist/`, `canvas_dist/`, `.venv/`, `.git/`, `.github/`, and `*.db` out of the Docker build context. | Stops a macOS-built `node_modules` from being copied over the container's fresh Linux `npm install` (which would break native binaries), and keeps the image small and free of real data files. |
+| `.dockerignore` | Keeps `node_modules/`, `dist/`, `web_dist/`, `.venv/`, `.git/`, `.github/`, and `*.db` out of the Docker build context. | Stops a macOS-built `node_modules` from being copied over the container's fresh Linux `npm install` (which would break native binaries), and keeps the image small and free of real data files. |
 | `.venv/` | Local Python virtual environment. | Local only — gitignored, never deployed (the Docker image builds its own environment). |
 | `.claude/launch.json` | Tells the Claude Code browser-preview tool how to start this app locally: `.venv/bin/python -m flask --app app run --port 8080 --debug`. | Lets `preview_start` (used during development in this tool) launch the right process by name instead of guessing. Committed to git - it's project config, not a personal/local setting. |
 
 ---
 
-## Why `static/` and `frontend/` are split (and stay split)
+## `static/` and `frontend/`: the migration
 
-They solve different problems and have opposite constraints:
+These used to be deliberately separate: a build-free webpage in `static/`
+and a tldraw-only React app in `frontend/`. The frontend redesign
+(`docs/features/frontend-redesign.md`) **reverses that decision** - a design
+system, shared components and real URLs now matter more than keeping the
+main page build-free - so both become one React app in `frontend/`.
 
-| | `static/` | `frontend/` |
+It happens gradually, so there's always a working app:
+
+| | Now (migration) | After cutover |
 | --- | --- | --- |
-| **What** | Time Log + Notes webpage | tldraw canvas (`/canvas`) |
-| **Tech** | Hand-written HTML/CSS/JS | React 19 + Vite + tldraw |
-| **Build step** | **None** | `npm install` + `vite build` |
-| **How it's served** | Flask serves the folder as-is | Flask serves the **compiled** `dist/` output (copied in as `canvas_dist/`) |
-| **In the Docker image** | Copied verbatim | Only the build output is copied; Node/npm are discarded with Stage 1 |
+| `/` | Old webpage (`static/index.html`) | React app |
+| `/app/...` | React app (screens are added phase by phase; unbuilt ones show a placeholder linking to `/`) | Redirects (301) to the same path without `/app` |
+| `/canvas` | Redirects to `/app/canvas` (the canvas moved into the React app first) | React app's canvas |
+| Built files | `/app/assets/*` | `/app/assets/*` (unchanged) |
 
-Keeping the main webpage in `static/` means the part of the app that changes
-most often has **zero toolchain** — edit the file, refresh, deploy. tldraw
-*cannot* be used that way (it's a React SDK that must be bundled), so it lives
-in its own folder with its own `package.json` and is built in isolation.
-
-Merging them would force a build step onto the dependency-free webpage, or
-force the canvas to abandon its SDK. Neither is wanted — **do not merge them.**
+Both apps share the same localStorage keys (`task_logger_api_key`,
+`task_logger_session_last_active`), so signing in to one signs in the other.
 
 ---
 
@@ -130,18 +140,31 @@ set as Fly secrets / environment variables.
 .venv/bin/python -m flask --app app run --port 8080
 ```
 
-Serves the webpage at `/`, the API at `/toggle` `/status` `/api/...`, and the
-docs at `/docs`. The `/canvas` route needs the compiled canvas present as
-`canvas_dist/` next to `app.py` (see below).
+Serves the old webpage at `/`, the API at `/toggle` `/status` `/api/...`, and the
+docs at `/docs`. The React app at `/app` needs its compiled files present as
+`web_dist/` next to `app.py` (see below).
 
-**Canvas (local):**
+**React app (local):**
 
 ```
 cd frontend && npm install && npm run build      # produces frontend/dist/
-cp -R frontend/dist ../canvas_dist               # so Flask's /canvas route can find it
+cp -R frontend/dist ../web_dist                  # so Flask's /app routes can find it
 ```
 
-**Production:** `docker build` does both automatically — Stage 1 builds
-`frontend/` and Stage 2 copies `frontend/dist` in as `canvas_dist/`. The Vite
-`base: '/canvas/'` setting makes the built asset URLs line up exactly with
-Flask's `/canvas/assets/<file>` route, so no path config is needed at runtime.
+Or, for live reloading while editing: run Flask as above, then
+`cd frontend && npm run dev` and open `http://localhost:5173/app/` - the Vite
+dev server forwards `/api`, `/toggle` and `/status` to Flask on port 8080.
+
+**Tests:**
+
+```
+.venv/bin/pip install -r requirements-dev.txt    # once
+.venv/bin/python -m pytest                       # backend: Watch contract + page routing
+cd frontend && npm test                          # frontend: unit tests (vitest)
+cd frontend && npm run build && npm run lint     # frontend: type-check, build, lint
+```
+
+**Production:** `docker build` does the frontend build automatically — Stage 1
+builds `frontend/` and Stage 2 copies `frontend/dist` in as `web_dist/`. The
+Vite `base: '/app/'` setting makes the built asset URLs line up exactly with
+Flask's `/app/assets/<file>` route, so no path config is needed at runtime.

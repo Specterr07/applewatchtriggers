@@ -27,13 +27,13 @@ This document outlines the naming conventions, file system structure, and coding
 Our root directory maintains a strict separation of concerns to avoid clutter:
 
 - `backend/` *(conceptually the root Python files)*: Kept at the root to avoid nested Docker/Fly configurations. Includes `app.py`, `routes/`, and `services/`.
-- `frontend/`: Isolated React/Vite application. Built completely separately via Docker Stage 1. No backend dependencies.
-- `static/`: Standalone HTML/CSS/JS without a build step (for the Time Log webpage). Served directly by Flask.
+- `frontend/`: The React + TypeScript + Vite app (served at `/app` during the migration, at `/` after cutover). Built completely separately via Docker Stage 1. No backend dependencies. Folder layout and rules: `docs/features/frontend-redesign.md` §8.
+- `static/`: `openapi.yaml`, plus the old build-free webpage (`index.html`) until the React app reaches parity and replaces it.
 - `docs/`: All documentation, planning records, and architectural diagrams.
   - `docs/plans/`: Historical `PLAN_*.md` decision records for implemented and deferred features.
   - `docs/features/`: Work-in-progress or proposed feature definitions (following `PROCESS.md`).
 
 ## 3. General Principles
 - **Keep route handlers lean:** `routes/*.py` should only handle request parsing, calling services, and returning JSON. All database/external logic belongs in `services/`.
-- **No mixed environments:** Do not blend React build processes into the standalone `static/` webpages.
+- **One frontend going forward:** New UI work goes in the React app (`frontend/`), not in `static/index.html`, which only receives fixes until it's removed at cutover. (This replaces the earlier "keep static/ and frontend/ separate" rule - see the Decisions in `docs/features/frontend-redesign.md`.)
 - **Update Documentation Synchronously:** Any structural changes to routes, DB schemas, or folders must include parallel updates to `PROJECT_STRUCTURE.md`.

@@ -19,7 +19,10 @@
     "strict": true,
     "noUnusedLocals": true,
     "noUnusedParameters": true,
-    "noFallthroughCasesInSwitch": true
+    "noFallthroughCasesInSwitch": true,
+
+    /* `@/foo` -> `src/foo` (the matching Vite alias is in vite.config.ts). */
+    "paths": { "@/*": ["./src/*"] }
   },
-  "include": ["main.tsx", "App.tsx", "vite-env.d.ts"]
+  "include": ["src"]
 }

@@ -1,0 +1,99 @@
+@import 'tailwindcss';
+@import './tokens.css';
+
+/* Dark mode follows a `.dark` class on <html> (set by hooks/useTheme.tsx and,
+   before first paint, by the inline script in index.html) - not the OS
+   setting directly, because Light is the default even on a dark-mode OS. */
+@custom-variant dark (&:where(.dark, .dark *));
+
+/* Only our own tokens exist as colors. Removing Tailwind's default palette
+   means an arbitrary `bg-red-500` simply won't work - every color has to
+   come from the design system. */
+@theme {
+  --color-*: initial;
+
+  --font-sans: 'Inter Variable', ui-sans-serif, system-ui, -apple-system, 'Segoe UI', sans-serif;
+
+  /* Type scale from the spec: 12 / 13 / 14 (body) / 16 / 20 / 24 / 32. */
+  --text-*: initial;
+  --text-xs: 0.75rem;
+  --text-xs--line-height: 1rem;
+  --text-sm: 0.8125rem;
+  --text-sm--line-height: 1.25rem;
+  --text-base: 0.875rem;
+  --text-base--line-height: 1.375rem;
+  --text-md: 1rem;
+  --text-md--line-height: 1.5rem;
+  --text-lg: 1.25rem;
+  --text-lg--line-height: 1.75rem;
+  --text-xl: 1.5rem;
+  --text-xl--line-height: 2rem;
+  --text-2xl: 2rem;
+  --text-2xl--line-height: 2.5rem;
+
+  --radius-control: 8px;
+  --radius-card: 12px;
+}
+
+/* `inline` makes Tailwind emit var(--surface) etc. instead of copying the
+   value, so the .dark overrides in tokens.css take effect. */
+@theme inline {
+  --color-background: var(--background);
+  --color-surface: var(--surface);
+  --color-surface-muted: var(--surface-muted);
+  --color-foreground: var(--text);
+  --color-secondary: var(--text-secondary);
+  --color-secondary-on-bg: var(--text-secondary-on-bg);
+  --color-border: var(--border);
+  --color-accent: var(--accent);
+  --color-accent-strong: var(--accent-strong);
+  --color-accent-text: var(--accent-text);
+  --color-success: var(--success);
+  --color-success-strong: var(--success-strong);
+  --color-danger: var(--danger);
+  --color-danger-strong: var(--danger-strong);
+  --color-danger-text: var(--danger-text);
+  --color-on-accent: var(--on-accent);
+  --color-overlay: var(--overlay);
+
+  --shadow-card: var(--elevation-card);
+  --shadow-raised: var(--elevation-raised);
+}
+
+@layer base {
+  *,
+  ::before,
+  ::after {
+    border-color: var(--color-border);
+  }
+
+  body {
+    background-color: var(--color-background);
+    color: var(--color-foreground);
+    font-family: var(--font-sans);
+    font-size: var(--text-base);
+    line-height: var(--text-base--line-height);
+    -webkit-font-smoothing: antialiased;
+    -moz-osx-font-smoothing: grayscale;
+    -webkit-tap-highlight-color: transparent;
+  }
+
+  /* One consistent, clearly visible keyboard focus ring for every
+     interactive element - defined once here instead of per component. */
+  :focus-visible {
+    outline: 2px solid var(--color-accent);
+    outline-offset: 2px;
+  }
+}
+
+/* Respect the OS "reduce motion" setting: keep state changes, drop motion. */
+@media (prefers-reduced-motion: reduce) {
+  *,
+  ::before,
+  ::after {
+    animation-duration: 0.01ms !important;
+    animation-iteration-count: 1 !important;
+    transition-duration: 0.01ms !important;
+    scroll-behavior: auto !important;
+  }
+}

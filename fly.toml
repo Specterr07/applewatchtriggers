@@ -7,7 +7,9 @@ primary_region = "sin"    # pick the region closest to you, e.g. "sin" (Singapor
   DATA_DIR = "/data"
   # Fixes the Watch-vs-server timezone mismatch: the machine's OS clock is
   # UTC, but timestamps should read in your local time. Change this if you
-  # ever log tasks from a different timezone.
+  # ever log tasks from a different timezone - and if you do, also set
+  # SERVER_TIMEZONE in frontend/src/config.ts (or VITE_SERVER_TIMEZONE at
+  # build time) to match, since the web app reads timestamps in this zone.
   TIMEZONE = "Asia/Kolkata"
 
 [[mounts]]

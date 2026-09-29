@@ -2,12 +2,35 @@
 <html lang="en">
   <head>
     <meta charset="UTF-8" />
-    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-    <title>Canvas · Task Logger</title>
+    <!-- viewport-fit=cover lets the bottom nav sit behind the iPhone home indicator (padded via safe-area insets). -->
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover" />
+    <title>Sheev</title>
+    <!-- Inline icon: a file in public/ would be caught by Flask's /app/<path> route and served as HTML. -->
+    <link
+      rel="icon"
+      href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 32 32'%3E%3Crect width='32' height='32' rx='8' fill='%233366E8'/%3E%3Ccircle cx='16' cy='17.5' r='8' fill='none' stroke='white' stroke-width='2.5'/%3E%3Cpath d='M16 13.5v4l2.5 2M13 6.5h6' fill='none' stroke='white' stroke-width='2.5' stroke-linecap='round'/%3E%3C/svg%3E"
+    />
+    <script>
+      // Apply the saved theme before anything paints, so a dark-mode user
+      // never sees a white flash. Must match hooks/useTheme.tsx:
+      // key "sheev_theme", values light | dark | system, default light.
+      ;(function () {
+        try {
+          var preference = localStorage.getItem('sheev_theme') || 'light'
+          var isDark =
+            preference === 'dark' ||
+            (preference === 'system' && window.matchMedia('(prefers-color-scheme: dark)').matches)
+          if (isDark) document.documentElement.classList.add('dark')
+          document.documentElement.style.colorScheme = isDark ? 'dark' : 'light'
+        } catch (err) {
+          // Storage blocked (e.g. private mode): fall back to the light default.
+        }
+      })()
+    </script>
   </head>
   <body>
-    <!-- React mounts here; main.tsx renders <App /> (the tldraw canvas) into it. -->
+    <!-- React mounts here; src/main.tsx renders <App /> into it. -->
     <div id="root"></div>
-    <script type="module" src="/main.tsx"></script>
+    <script type="module" src="/src/main.tsx"></script>
   </body>
 </html>

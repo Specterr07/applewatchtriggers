@@ -8,8 +8,8 @@ they exist) for what's coming.
 ```mermaid
 flowchart TB
     Watch["📱 Apple Watch Shortcut<br/>GET /toggle?key=..."]
-    Browser["🌐 Browser<br/>static/index.html<br/>Time Log + Notes tabs"]
-    CanvasApp["🌐 Browser<br/>/canvas app (React + tldraw)<br/>separate SPA"]
+    Browser["🌐 Browser<br/>static/index.html (old page, at /)<br/>Time Log + Notes tabs"]
+    CanvasApp["🌐 Browser<br/>React app at /app<br/>shell + canvas (lazy tldraw);<br/>other screens being migrated"]
     TelegramUser["📱 Me in Telegram"]
     TelegramServers["Telegram Servers<br/>(Bot API)"]
 
@@ -20,8 +20,8 @@ flowchart TB
 
     subgraph Docker["Dockerfile — multi-stage build"]
         direction TB
-        Stage1["Stage 1: node:20-slim<br/>npm install && npm run build<br/>frontend/ → frontend/dist"]
-        Stage2["Stage 2: python:3.12-slim<br/>apt-get install ffmpeg<br/>pip install -r requirements.txt<br/>COPY app.py routes/ services/ static/<br/>COPY --from=Stage1 dist → canvas_dist/"]
+        Stage1["Stage 1: node:20-slim<br/>npm ci && npm run build<br/>frontend/ → frontend/dist"]
+        Stage2["Stage 2: python:3.12-slim<br/>apt-get install ffmpeg<br/>pip install -r requirements.txt<br/>COPY app.py routes/ services/ static/<br/>COPY --from=Stage1 dist → web_dist/"]
         Stage1 -->|"only compiled JS/CSS crosses over"| Stage2
     end
 
@@ -37,7 +37,7 @@ flowchart TB
 
     subgraph FlaskApp["Flask app (app.py registers 5 blueprints)"]
         Auth["services/auth.py<br/>require_key decorator<br/>API_KEY env var"]
-        PagesRoute["routes/pages.py<br/>/  →  static/index.html<br/>/canvas, /canvas/assets/*  →  canvas_dist/"]
+        PagesRoute["routes/pages.py<br/>/  →  static/index.html<br/>/app, /app/*, /app/assets/*  →  web_dist/<br/>/canvas  →  302 /app/canvas"]
         TasksRoute["routes/tasks.py<br/>/toggle /status<br/>/api/logs, /api/logs/{id}"]
         CanvasRoute["routes/canvas.py<br/>GET/PUT /api/canvas"]
         NotesRoute["routes/notes.py<br/>POST/GET /api/notes<br/>DELETE /api/notes/{id}"]
@@ -55,7 +55,7 @@ flowchart TB
     Browser -->|"X-API-Key header"| TelegramRoute
     Browser -->|"loads page"| PagesRoute
     PagesRoute -.->|"serves compiled app,<br/>which the browser then runs as"| CanvasApp
-    CanvasApp -->|"X-API-Key header<br/>(reads the same localStorage<br/>key the main page stores)"| CanvasRoute
+    CanvasApp -->|"X-API-Key header<br/>(same localStorage keys<br/>as the old page)"| CanvasRoute
 
     TelegramUser <--> TelegramServers
     TelegramServers -->|"POST webhook"| TelegramRoute
@@ -96,7 +96,7 @@ flowchart TB
     PipelineSvc -->|"transcribe original<br/>upload before compressing"| Groq
 
     N1["Why per-feature SQLite files,<br/>not one shared DB: each feature's<br/>storage stays independently simple<br/>and swappable - tasks moved off CSV<br/>only because it needed stable ids;<br/>canvas/notes just followed that<br/>same established pattern"]:::note
-    N2["Why multi-stage Docker build:<br/>Node/npm/source .tsx files never<br/>reach the deployed image - only<br/>the compiled canvas JS/CSS does"]:::note
+    N2["Why multi-stage Docker build:<br/>Node/npm/source .tsx files never<br/>reach the deployed image - only<br/>the compiled app JS/CSS does"]:::note
     N3["Why ffmpeg + 120s gunicorn timeout:<br/>POST /api/notes does upload +<br/>Groq transcription + ffmpeg compression<br/>+ a Tigris upload, all in ONE request"]:::note
     N4["Why presigned URLs, not stored ones:<br/>only the object KEY is durable in notes.db -<br/>a stored URL would just be a presigned<br/>link quietly expiring later"]:::note
     N5["Why the Watch uses a query param but<br/>the browser uses a header: the Shortcut's<br/>'Get Contents of URL' action can't easily<br/>set custom headers; the same require_key<br/>check accepts either"]:::note
@@ -117,13 +117,13 @@ Every push to `main` runs `.github/workflows/deploy.yml`, which just runs
 `flyctl deploy --remote-only` - Fly's remote builder does the actual Docker
 build, using the `FLY_API_TOKEN` GitHub secret.
 
-**The Dockerfile is two stages** because the canvas feature (`frontend/`) is a
-React + Vite + tldraw app that needs Node, npm, and a real build step, but
+**The Dockerfile is two stages** because the React app (`frontend/`, which
+includes the tldraw canvas) needs Node, npm, and a real build step, but
 the *deployed* app is a lightweight Python/Flask process that should never
 need Node at runtime. Stage 1 (`node:20-slim`) builds `frontend/` down to
 plain JS/CSS/HTML in `frontend/dist`. Stage 2 (`python:3.12-slim`) never sees
 Node at all - it only `COPY --from=frontend-build`s the *compiled output*
-(as `canvas_dist/`). This keeps the production image small and keeps a
+(as `web_dist/`). This keeps the production image small and keeps a
 heavy JS toolchain from ever needing to exist on the server.
 
 Stage 2 also `apt-get install`s `ffmpeg` (for voice-note compression -
@@ -149,10 +149,13 @@ file, which calls into `services/*.py` for anything touching a database,
 external API, or the filesystem - so a route file is just "parse the
 request → call a service → shape the JSON response," nothing else.
 
-- **`routes/pages.py`** - no auth. Serves the webpage (`/`) and the
-  *compiled* canvas app (`/canvas`, `/canvas/assets/*`). These are static
-  files; nothing sensitive lives here, which is why they're not behind
-  `require_key`.
+- **`routes/pages.py`** - no auth. Serves the old webpage (`/`), the
+  *compiled* React app (`/app`, `/app/<path>` → its `index.html`;
+  `/app/assets/*` → its built files), and redirects `/canvas` →
+  `/app/canvas`. Only that explicit list of page URLs returns HTML, so
+  unknown URLs (including unknown `/api/*` paths) still get the JSON 404.
+  These are static files; nothing sensitive lives here, which is why
+  they're not behind `require_key`.
 - **`routes/tasks.py`** - the Watch-facing `/toggle` (Start/End a task) and
   `/status`, plus `/api/logs` (list) and `/api/logs/{id}` (get/edit/delete
   one task) for the webpage's bento-card grid and detail view.
@@ -220,9 +223,25 @@ memory for the duration of the request.
   currently open. The Shortcut never sends a name (naming is webpage-only),
   and it's the reason `/toggle` stays a plain `GET` with the key as a query
   param instead of, say, a `POST` with a header or body.
-- **The webpage** (`static/index.html`) - a single-file, dependency-free
-  HTML/CSS/JS page (no build step, no framework) with three tabs: **Time
-  Log** (the bento-card grid + task detail view), **Notes** (record/list/
-  play/delete voice notes), and a plain link to **Canvas**, which is a
-  *separate* compiled React SPA (`frontend/`) served at `/canvas` - it makes
-  its own calls to `/api/canvas`, reading the same stored API key.
+- **The old webpage** (`static/index.html`, at `/`) - a single-file,
+  dependency-free HTML/CSS/JS page with three tabs: **Time Log** (the
+  bento-card grid + task detail view), **Notes** (record/list/play/delete
+  voice notes), and a link to **Canvas** (`/canvas`, which now redirects
+  into the new app).
+- **The new React app** (`frontend/`, at `/app`) - replacing the old page
+  one phase at a time (`docs/features/frontend-redesign.md`). So far: the
+  app shell (sidebar / bottom nav, Light/Dark/System theme), the sign-in
+  gate (same localStorage keys and 24h expiry as the old page, so signing
+  in to one signs in the other), **Home** (running task with a live timer,
+  today's stats, recent activity, Start/Stop), **Tasks** (search/filter,
+  detail with edit, reopen, delete) and **Time Log** (by day, with
+  totals) - all reading the same cached `/api/logs` list, so they can't
+  disagree - **Notes** (record from Capture, search loaded transcripts,
+  play, delete; the recorder keeps a failed recording for Retry and the
+  player refreshes an expired playback link once), the Capture menu,
+  Settings,
+  and the **Canvas**, whose tldraw bundle is lazy-loaded only when
+  `/app/canvas` opens. Start/Stop always asks `/status` first and only then
+  calls `/toggle`, so a stale screen can't flip the Watch's task the wrong
+  way; the Watch-facing endpoints themselves are unchanged. Screens not built
+  yet show a placeholder linking back to the old page.
