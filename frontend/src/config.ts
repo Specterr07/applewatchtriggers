@@ -17,6 +17,10 @@ export const SESSION_EXPIRY_MS = 24 * 60 * 60 * 1000
 // before React loads, so if you rename it, rename it there too.
 export const THEME_STORAGE = 'sheev_theme'
 
+// When the last Telegram test message was sent successfully (Date.now()
+// milliseconds). Browser-only: the server can't report link status (spec §4.8).
+export const TELEGRAM_LAST_TEST_STORAGE = 'sheev_telegram_last_test'
+
 // The timezone the server writes timestamps in (spec §8.4). Backend
 // timestamps like "2026-09-30 09:05:00" carry no offset - they're wall-clock
 // time in this zone. MUST match TIMEZONE in fly.toml; override at build time

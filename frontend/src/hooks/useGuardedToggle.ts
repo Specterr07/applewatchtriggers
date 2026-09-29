@@ -64,8 +64,12 @@ export function useGuardedToggle() {
   const queryClient = useQueryClient()
 
   // Refetches the task list so every screen shows the real state. Resolves
-  // once the fresh list is in the cache.
-  const refreshTasks = () => queryClient.invalidateQueries({ queryKey: QUERY_KEYS.tasks })
+  // once the fresh list is in the cache. /status changes with every toggle
+  // too; it's only refetched if a screen is showing it (Apple Watch).
+  const refreshTasks = () => {
+    void queryClient.invalidateQueries({ queryKey: QUERY_KEYS.status })
+    return queryClient.invalidateQueries({ queryKey: QUERY_KEYS.tasks })
+  }
 
   const isAnyTogglePending = useIsMutating({ mutationKey: TOGGLE_MUTATION_KEY }) > 0
 

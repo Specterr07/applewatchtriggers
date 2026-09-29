@@ -1,5 +1,5 @@
 import { History, Mic, Play, Square, type LucideIcon } from 'lucide-react'
-import type { ReactNode } from 'react'
+import { useId, type ReactNode } from 'react'
 
 import { Card } from '@/components/ui/Card'
 import { EmptyState } from '@/components/ui/EmptyState'
@@ -16,24 +16,33 @@ const EVENT_ICONS: Record<ActivityEvent['kind'], { icon: LucideIcon; className: 
 type RecentActivityProps = {
   events: ActivityEvent[]
   now: WallClock
+  title?: string
+  // A line under the heading, e.g. what the list does and doesn't include.
+  description?: string
+  emptyDescription?: string
   // Shown under the list, e.g. "notes couldn't be loaded".
   footer?: ReactNode
 }
 
 // A short, newest-first feed of task starts/stops and saved notes.
-export function RecentActivity({ events, now, footer }: RecentActivityProps) {
+export function RecentActivity({
+  events,
+  now,
+  title = 'Recent activity',
+  description,
+  emptyDescription = 'Start a task or record a note and it will show up here.',
+  footer,
+}: RecentActivityProps) {
+  const headingId = useId()
   return (
-    <section aria-labelledby="activity-heading">
-      <h2 id="activity-heading" className="mb-3 text-md font-semibold">
-        Recent activity
+    <section aria-labelledby={headingId}>
+      <h2 id={headingId} className="text-md font-semibold">
+        {title}
       </h2>
-      <Card>
+      {description && <p className="mt-0.5 text-secondary-on-bg">{description}</p>}
+      <Card className="mt-3">
         {events.length === 0 ? (
-          <EmptyState
-            icon={History}
-            title="Nothing here yet"
-            description="Start a task or record a note and it will show up here."
-          />
+          <EmptyState icon={History} title="Nothing here yet" description={emptyDescription} />
         ) : (
           <ol className="divide-y divide-border">
             {events.map((event) => (
