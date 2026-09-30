@@ -8,12 +8,13 @@ import { defineConfig } from 'vite'
 // calls there, so the dev server works against the real backend.
 const FLASK_DEV_SERVER = 'http://localhost:8080'
 
-export default defineConfig({
+export default defineConfig(({ command }) => ({
   plugins: [react(), tailwindcss()],
   // Built files are referenced as /app/assets/..., which routes/pages.py
-  // serves. This stays '/app/' even after cutover (spec §8.6) - only the
-  // router basename in src/config.ts changes then.
-  base: '/app/',
+  // serves - that path never collides with a screen or API URL (spec §8.6).
+  // The dev server uses '/' so `npm run dev` opens the app at the same
+  // root URLs as production.
+  base: command === 'build' ? '/app/' : '/',
   resolve: {
     // `@/...` means `src/...`, so imports don't need long ../../ chains.
     alias: { '@': fileURLToPath(new URL('./src', import.meta.url)) },
@@ -28,4 +29,4 @@ export default defineConfig({
   build: {
     outDir: 'dist',
   },
-})
+}))

@@ -723,12 +723,14 @@ flowchart LR
 **M5 — Cutover** (one commit)
 - [ ] Walk through the parity checklist (§13) on a real phone and a
       desktop against production data.
-- [ ] `ROUTER_BASENAME = ''`; Flask route list for `/`; `/app*` → 301;
-      `/canvas` serves the app directly.
-- [ ] Delete `static/index.html` (keep `static/openapi.yaml`).
-- [ ] Update `PROJECT_STRUCTURE.md`, `ARCHITECTURE.md`, `docs/STANDARDS.md`,
+- [x] `ROUTER_BASENAME = ''`; Flask route list for `/`; `/app*` → 301;
+      `/canvas` serves the app directly. *(2026-09-30)*
+- [ ] Delete `static/index.html` (keep `static/openapi.yaml`). *(Deferred
+      at cutover by request: no longer served at `/`, file kept until the
+      cutover is reviewed.)*
+- [x] Update `PROJECT_STRUCTURE.md`, `ARCHITECTURE.md`, `docs/STANDARDS.md`,
       and the app.py docstring.
-- [ ] Rollback plan: `git revert` of the cutover commit restores the old
+- [x] Rollback plan: `git revert` of the cutover commit restores the old
       page at `/` (the new app stays at `/app`).
 
 ### Review checkpoints (mandatory)

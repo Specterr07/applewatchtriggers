@@ -1,9 +1,9 @@
 // App-wide constants, kept in one place so each value only ever changes here.
 // See docs/features/frontend-redesign.md for the reasoning behind each one.
 
-// The React app lives under /app while the old page (static/index.html)
-// still owns "/". At cutover (spec §10, M5) this becomes ''.
-export const ROUTER_BASENAME = '/app'
+// The React app is served from "/" (it lived under /app during the
+// migration; routes/pages.py now 301-redirects those old URLs).
+export const ROUTER_BASENAME = ''
 
 // These two keys are shared with static/index.html (and were shared with
 // the old canvas app). Renaming either would log everyone out on deploy.

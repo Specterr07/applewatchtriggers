@@ -6,8 +6,8 @@ A small **Flask** app that does three things:
    start/end a task, stored as one row per task in SQLite (`tasks.db`) so
    every task has a stable id - what a bento-card grid and a per-task detail
    page link to. Durations are calculated automatically.
-2. **Canvas** — a tldraw drawing surface inside the new React app
-   (`/app/canvas`; the old `/canvas` URL redirects there). Its drawing is saved server-side (`GET`/`PUT /api/canvas`, backed by
+2. **Canvas** — a tldraw drawing surface inside the React app
+   (`/canvas`). Its drawing is saved server-side (`GET`/`PUT /api/canvas`, backed by
    `canvas.db`) so the same canvas shows up on any device, not just the
    browser that drew it.
 3. **Notes** — record a voice note in the browser; the server transcribes it
@@ -22,11 +22,10 @@ A small **Flask** app that does three things:
 It is deployed to **Fly.io**, and the deploy runs automatically from GitHub
 Actions on every push to `main`.
 
-**Frontend migration in progress** (`docs/features/frontend-redesign.md`):
-the old single-file webpage (`static/index.html`) still serves `/`, while a
-new React app is being built at `/app` one phase at a time. Once the new app
-does everything the old page does, it moves to `/` and `static/index.html`
-is deleted.
+**Frontend cutover done** (`docs/features/frontend-redesign.md`, M5): the
+React app now serves `/` and every screen URL. The old single-file webpage
+(`static/index.html`) no longer serves `/`; the file is still in the repo
+pending deletion (see "static/ and frontend/" below).
 
 - **Repo:** https://github.com/Specterr07/applewatchtriggers
 - **Live app:** https://applewatchtriggers.fly.dev
@@ -38,17 +37,17 @@ is deleted.
 | Path | What it is | Why it exists |
 | --- | --- | --- |
 | `app.py` | Just app wiring: creates the Flask app, sets up Swagger docs, registers the blueprints below, and the 404 handler. No routes or storage logic live here anymore. | Kept intentionally tiny (~50 lines) so it's obvious at a glance what the app is made of. |
-| `routes/` | One file per feature's HTTP routes: `tasks.py` (`/toggle`, `/status`, `/api/logs*`), `canvas.py` (`/api/canvas`, GET/PUT), `notes.py` (`/api/notes*`), `telegram.py` (`/telegram/webhook`, `/api/channels/telegram/link`, `/api/channels/test`), `pages.py` (`/` → old webpage, `/app` + `/app/<path>` → the React app's `index.html`, `/app/assets/<file>` → its built files, `/canvas` → redirect to `/app/canvas`). Only that explicit list of page URLs returns HTML; everything else still gets `app.py`'s JSON 404. | Each route file only parses the request, calls into `services/`, and shapes the JSON response - no file/database code mixed in. |
+| `routes/` | One file per feature's HTTP routes: `tasks.py` (`/toggle`, `/status`, `/api/logs*`), `canvas.py` (`/api/canvas`, GET/PUT), `notes.py` (`/api/notes*`), `telegram.py` (`/telegram/webhook`, `/api/channels/telegram/link`, `/api/channels/test`), `pages.py` (`/`, `/tasks`, `/tasks/<int:id>`, `/time-log`, `/notes`, `/notes/<int:id>`, `/canvas`, `/integrations/<name>`, `/settings`, `/more` → the React app's `index.html`; `/app/assets/<file>` → its built files; `/app` + `/app/<path>` → 301 to the same path without `/app`). Only that explicit list of page URLs returns HTML; everything else still gets `app.py`'s JSON 404. | Each route file only parses the request, calls into `services/`, and shapes the JSON response - no file/database code mixed in. |
 | `services/` | Storage and cross-cutting logic the routes call into: `tasks_db.py` (SQLite CRUD for tasks), `canvas_db.py` (SQLite for the canvas's single saved snapshot), `notes_db.py` (SQLite for note metadata), `channels_db.py` (SQLite for Telegram links, one-time codes, seen updates), `channels.py` (channel abstraction & `send_to_user`), `telegram.py` (Telegram Bot API wrapper), `note_pipeline.py` (shared audio note ingest pipeline), `object_storage.py` (Tigris via boto3 - upload/delete/presigned playback URLs), `audio_compression.py` (ffmpeg re-encode), `transcription.py` (Groq Whisper), `auth.py` (the `require_key` decorator), `time.py` (`local_now()`/`TIMEZONE`), `config.py` (`DATA_DIR`). | Keeps file/database/external-API code out of the route files, and means the same storage/service functions aren't duplicated across routes that need them. |
 | `requirements-dev.txt` | Development-only Python tools (`pytest`), on top of `requirements.txt`. Install with `.venv/bin/pip install -r requirements-dev.txt`. | Keeps test tooling out of the production image. |
-| `tests/` | pytest suite: `test_watch_contract.py` pins the Apple Watch contract (`/toggle`, `/status`, `?key=` + `X-API-Key`, response shapes, 401s); `test_page_routing.py` checks which URLs return the React app vs. JSON 404s, the `/canvas` redirect, `/`, and `/docs`. `conftest.py` points `DATA_DIR` at a temp folder and sets a test `API_KEY` before the app is imported. Run with `.venv/bin/python -m pytest`. | The Watch Shortcut can't be updated alongside a deploy, so its contract needs a guard; the migration changes page routing, which must never swallow API errors. |
+| `tests/` | pytest suite: `test_watch_contract.py` pins the Apple Watch contract (`/toggle`, `/status`, `?key=` + `X-API-Key`, response shapes, 401s); `test_page_routing.py` checks which URLs return the React app vs. JSON 404s, the `/app/*` → root 301s, `/`, and `/docs`. `conftest.py` points `DATA_DIR` at a temp folder and sets a test `API_KEY` before the app is imported. Run with `.venv/bin/python -m pytest`. | The Watch Shortcut can't be updated alongside a deploy, so its contract needs a guard; the migration changes page routing, which must never swallow API errors. |
 | `pytest.ini` | pytest config: test folder, and the repo root on the import path so tests can `import app`. | So `python -m pytest` works from the repo root with no extra flags. |
 | `requirements.txt` | Python dependencies (`Flask`, `flask-swagger-ui`, `tzdata`, `groq`, `boto3`). `gunicorn` is installed separately in the Dockerfile for production. | Keeps the backend install minimal. `tzdata` ensures `zoneinfo` can find timezone data even on the slim base image, which doesn't reliably ship its own; `groq`/`boto3` are the Notes feature's transcription and Tigris clients. |
-| `static/` | The **old** plain HTML/CSS/JS webpage (`static/index.html`) plus `openapi.yaml`. | Flask serves this folder directly. `index.html` is being replaced by the React app in `frontend/` - see "static/ and frontend/: the migration" below. `openapi.yaml` stays. |
-| `static/index.html` | The old webpage — login, Time Log and Notes in one file with inline `<style>`/`<script>`; its Canvas tab links to `/canvas` (which now redirects into the new app). | Stays at `/` until the new app reaches parity, so there's always a working app. Deleted at cutover. |
+| `static/` | `openapi.yaml`, plus the **old** webpage file (`static/index.html`) that no longer serves `/`. | Flask serves this folder directly at `/static/...`. `openapi.yaml` stays. |
+| `static/index.html` | The old webpage — login, Time Log and Notes in one file with inline `<style>`/`<script>`. **No longer served at `/`** (the React app is); Flask's static folder still serves it as a plain file at `/static/index.html`. | Kept for now as a fallback reference; the spec's M5 checklist deletes it once the cutover has been reviewed. |
 | `static/openapi.yaml` | The OpenAPI 3 contract for the API. Flask serves it at `/static/openapi.yaml`, and `flask-swagger-ui` renders it as browsable docs at `/docs`. | This is the file a frontend engineer reads to build against the API without opening `app.py`. |
-| `frontend/` | The **new React app** (React 19 + TypeScript + Vite + Tailwind CSS v4), served at `/app`. Root: `index.html` (Vite entry + a tiny inline script that applies the saved theme before first paint), `vite.config.ts` (`base: '/app/'`, `@/` → `src/` alias, dev proxy to Flask on :8080), `package.json` / `package-lock.json`, `tsconfig*.json`. Code lives in `src/` (below). | One app replaces both old frontends, with shared components, a design system, and real URLs. Built in an isolated Docker stage; only its compiled output reaches the final image. |
-| `frontend/src/` | `main.tsx` (mounts React), `App.tsx` (providers + router only), `router.tsx` (every screen's URL), `config.ts` (router base, localStorage keys incl. `sheev_telegram_last_test`, `SERVER_TIMEZONE`, breakpoints). `api/` - the only code that calls `fetch` (`client.ts` handles the API key, the `{ok, message}` envelope, and 401 → sign-out; `tasks.ts` (`/status`, `/toggle`, `/api/logs`, `PATCH`/`DELETE /api/logs/<id>`), `notes.ts` (`GET`/`DELETE /api/notes`, and the voice-note upload - `POST /api/notes` via XMLHttpRequest so the UI can show the real "uploaded -> now transcribing" moment), `canvas.ts`, `channels.ts` (`POST /api/channels/telegram/link`, `POST /api/channels/test`); `queryClient.ts` - React Query setup and cache keys `['tasks']`, `['notes']`, `['status']`). `types/` - API response shapes (`task.ts`, `note.ts`, `channel.ts`, `api.ts`). `hooks/` - `useTasks` / `useNotes` / `useStatus` (cached server data; `useStatus` is `/status` for the Apple Watch screen, no polling), `useGuardedToggle` (Start/Stop: checks `/status` before `/toggle`, never sends a name on Stop), `useTaskMutations` (edit/delete; reopening re-checks `/status` so two tasks can never be running), `useDeleteNote`, `useCloseDetail` (back from a detail view), `useElapsedSeconds` (local recording timer), `useNow` (server-timezone clock for live timers), `useTheme`, `useMediaQuery`, `useShortcuts` (desktop keyboard shortcuts, spec §6.2: ignored while typing or in a dialog, off on the canvas). `features/` - one folder per area: `home/` (Overview: active session + live timer, today's stats, recent activity; `homeStats.ts` holds the calculations), `tasks/` (Tasks = *what* you worked on: search, Active/Completed filter, 50-at-a-time client-side "Show more", cards on phone/tablet and a table on desktop; `/tasks/:id` detail with edit, reopen, Start again, Stop and delete - a drawer with a sidebar, full-screen on phones), `timelog/` (Time Log = *when*: Today / 7 / 30 days / All, grouped by start day with daily totals; `timeLog.ts` holds the range/grouping logic), `notes/` (voice notes: `recorderController.ts` is the recording state machine - idle / requesting / recording / uploading / processing / success / error, keeping a failed recording for Retry - wrapped by `RecorderProvider` for the whole app; `RecorderPanel` + `RecorderStatusPill`; the Notes list with transcript search, note detail with playback/copy/delete, and `audioRecovery.ts` / `useNoteAudio.ts`, which refresh expired playback links once and then report a real failure), `capture/` (Capture menu - start/stop a task, record a voice note, open the canvas - plus the "Start a task" sheet, opened from anywhere via `CaptureProvider`), `auth/` (sign-in gate, same session rules and keys as the old page), `canvas/` (lazy-loaded tldraw screen + save logic), `watch/` (Apple Watch: `/status` reachability and next press, Shortcut URL with masked key + Reveal/Copy, how-it-works flow, last 10 start/stop events, troubleshooting), `telegram/` (connect via a one-time link or code with a 10-minute countdown, send a test message; the last successful test time is kept in this browser because the server can't report link status), `settings/` (theme, session, read-only time zone, links to integrations and `/docs`). `components/ui/` - reusable primitives (Button incl. `danger`, Input, SearchInput, Card, Sheet, Dialog, ResponsiveDialog, Drawer, ConfirmDialog, SegmentedControl, StatusPill, Spinner, Skeleton, EmptyState, Toaster). `components/layout/` - AppShell, Sidebar, BottomNav, nav config, Page frame, DetailScreen (phone full-screen detail), KeyboardShortcuts (wires the shortcuts and the `?` help), 404/error pages. `utils/` - `time.ts` (parses the backend's timezone-less timestamps by hand - never `new Date(string)`; date keys, day headings, form conversions), `tasks.ts` (minutes worked per task - the one calculation Home, Tasks and Time Log all share), `notifyError.ts`, safe localStorage, session, `cn()` class helper. `*.test.ts` files next to the code they test run with vitest (`npm test`). `styles/` - `tokens.css` (design tokens, light + dark) and `globals.css` (Tailwind theme mapping). | Folder layout and rules come from `docs/features/frontend-redesign.md` §8. |
+| `frontend/` | The **React app** (React 19 + TypeScript + Vite + Tailwind CSS v4), served at `/`. Root: `index.html` (Vite entry + a tiny inline script that applies the saved theme before first paint), `vite.config.ts` (`base: '/app/'` for builds so assets live at `/app/assets/*`, `'/'` for the dev server; `@/` → `src/` alias, dev proxy to Flask on :8080), `package.json` / `package-lock.json`, `tsconfig*.json`. Code lives in `src/` (below). | One app replaces both old frontends, with shared components, a design system, and real URLs. Built in an isolated Docker stage; only its compiled output reaches the final image. |
+| `frontend/src/` | `main.tsx` (mounts React), `App.tsx` (providers + router only), `router.tsx` (every screen's URL), `config.ts` (router basename - `''`, the app is at the root; localStorage keys incl. `sheev_telegram_last_test`, `SERVER_TIMEZONE`, breakpoints). `api/` - the only code that calls `fetch` (`client.ts` handles the API key, the `{ok, message}` envelope, and 401 → sign-out; `tasks.ts` (`/status`, `/toggle`, `/api/logs`, `PATCH`/`DELETE /api/logs/<id>`), `notes.ts` (`GET`/`DELETE /api/notes`, and the voice-note upload - `POST /api/notes` via XMLHttpRequest so the UI can show the real "uploaded -> now transcribing" moment), `canvas.ts`, `channels.ts` (`POST /api/channels/telegram/link`, `POST /api/channels/test`); `queryClient.ts` - React Query setup and cache keys `['tasks']`, `['notes']`, `['status']`). `types/` - API response shapes (`task.ts`, `note.ts`, `channel.ts`, `api.ts`). `hooks/` - `useTasks` / `useNotes` / `useStatus` (cached server data; `useStatus` is `/status` for the Apple Watch screen, no polling), `useGuardedToggle` (Start/Stop: checks `/status` before `/toggle`, never sends a name on Stop), `useTaskMutations` (edit/delete; reopening re-checks `/status` so two tasks can never be running), `useDeleteNote`, `useCloseDetail` (back from a detail view), `useElapsedSeconds` (local recording timer), `useNow` (server-timezone clock for live timers), `useTheme`, `useMediaQuery`, `useShortcuts` (desktop keyboard shortcuts, spec §6.2: ignored while typing or in a dialog, off on the canvas). `features/` - one folder per area: `home/` (Overview: active session + live timer, today's stats, recent activity; `homeStats.ts` holds the calculations), `tasks/` (Tasks = *what* you worked on: search, Active/Completed filter, 50-at-a-time client-side "Show more", cards on phone/tablet and a table on desktop; `/tasks/:id` detail with edit, reopen, Start again, Stop and delete - a drawer with a sidebar, full-screen on phones), `timelog/` (Time Log = *when*: Today / 7 / 30 days / All, grouped by start day with daily totals; `timeLog.ts` holds the range/grouping logic), `notes/` (voice notes: `recorderController.ts` is the recording state machine - idle / requesting / recording / uploading / processing / success / error, keeping a failed recording for Retry - wrapped by `RecorderProvider` for the whole app; `RecorderPanel` + `RecorderStatusPill`; the Notes list with transcript search, note detail with playback/copy/delete, and `audioRecovery.ts` / `useNoteAudio.ts`, which refresh expired playback links once and then report a real failure), `capture/` (Capture menu - start/stop a task, record a voice note, open the canvas - plus the "Start a task" sheet, opened from anywhere via `CaptureProvider`), `auth/` (sign-in gate, same session rules and keys as the old page), `canvas/` (lazy-loaded tldraw screen + save logic), `watch/` (Apple Watch: `/status` reachability and next press, Shortcut URL with masked key + Reveal/Copy, how-it-works flow, last 10 start/stop events, troubleshooting), `telegram/` (connect via a one-time link or code with a 10-minute countdown, send a test message; the last successful test time is kept in this browser because the server can't report link status), `settings/` (theme, session, read-only time zone, links to integrations and `/docs`). `components/ui/` - reusable primitives (Button incl. `danger`, Input, SearchInput, Card, Sheet, Dialog, ResponsiveDialog, Drawer, ConfirmDialog, SegmentedControl, StatusPill, Spinner, Skeleton, EmptyState, Toaster). `components/layout/` - AppShell, Sidebar, BottomNav, nav config, Page frame, DetailScreen (phone full-screen detail), KeyboardShortcuts (wires the shortcuts and the `?` help), 404/error pages. `utils/` - `time.ts` (parses the backend's timezone-less timestamps by hand - never `new Date(string)`; date keys, day headings, form conversions), `tasks.ts` (minutes worked per task - the one calculation Home, Tasks and Time Log all share), `notifyError.ts`, safe localStorage, session, `cn()` class helper. `*.test.ts` files next to the code they test run with vitest (`npm test`). `styles/` - `tokens.css` (design tokens, light + dark) and `globals.css` (Tailwind theme mapping). | Folder layout and rules come from `docs/features/frontend-redesign.md` §8. |
 | `Dockerfile` | **Multi-stage build.** Stage 1 (`node:20-slim`) runs `npm ci` + `npm run build` on `frontend/` and produces `frontend/dist`. Stage 2 (`python:3.12-slim`) `apt-get install`s `ffmpeg`, installs Python deps, copies `app.py`, `routes/`, `services/`, `static/`, and **only** `frontend/dist` (as `web_dist/`), then runs gunicorn (`--timeout 120`, longer than the 30s default - `POST /api/notes` does upload + transcription + compression + a Tigris upload in one request). | Node and npm never reach the production image — only the compiled app's JS/CSS does. This is why `frontend/` can have heavy build tooling without bloating the deployed app. `ffmpeg` isn't in `python:3.12-slim` by default, so Notes needs it installed explicitly. |
 | `fly.toml` | Fly.io app config: app name, region (`sin`), the persistent volume mounted at `/data`, `DATA_DIR=/data`, `TIMEZONE=Asia/Kolkata`, and the HTTP service on port 8080. Does **not** list `GROQ_API_KEY` / `AWS_ACCESS_KEY_ID` / `AWS_SECRET_ACCESS_KEY` / `AWS_ENDPOINT_URL_S3` / `BUCKET_NAME` - those are Fly secrets (`fly secrets set ...`), kept out of this (git-tracked) file the same way `API_KEY` already is. | `tasks.db`, `canvas.db`, and `notes.db` all live on the Fly volume (`/data`), **not** in the image or git, so data survives redeploys. `TIMEZONE` fixes timestamps to your local time regardless of the container's own (UTC) clock. The React app reads timestamps in the same zone, so `SERVER_TIMEZONE` in `frontend/src/config.ts` must match it. |
 | `.github/workflows/deploy.yml` | GitHub Actions workflow with two jobs. `test` runs on every push to `main` and every pull request into `main`: `pytest` (Python 3.12), then in `frontend/` `npm ci`, `npm run lint`, `npm test`, `npm run build` (Node 20 - both versions match the Dockerfile). `deploy` needs `test` to pass and runs only on a push to `main`: install `flyctl`, run `flyctl deploy --remote-only` with the `FLY_API_TOKEN` secret. | Automates what used to be a manual `fly deploy`, and stops a failing test, lint error or broken build (including a broken Watch contract) from reaching production. |
@@ -66,7 +65,7 @@ is deleted.
 
 ---
 
-## `static/` and `frontend/`: the migration
+## `static/` and `frontend/`: the migration (cut over)
 
 These used to be deliberately separate: a build-free webpage in `static/`
 and a tldraw-only React app in `frontend/`. The frontend redesign
@@ -74,17 +73,23 @@ and a tldraw-only React app in `frontend/`. The frontend redesign
 system, shared components and real URLs now matter more than keeping the
 main page build-free - so both become one React app in `frontend/`.
 
-It happens gradually, so there's always a working app:
+It happened gradually, so there was always a working app. The cutover is
+now done:
 
-| | Now (migration) | After cutover |
+| | During migration | Now (after cutover) |
 | --- | --- | --- |
 | `/` | Old webpage (`static/index.html`) | React app |
-| `/app/...` | React app (screens are added phase by phase) | Redirects (301) to the same path without `/app` |
-| `/canvas` | Redirects to `/app/canvas` (the canvas moved into the React app first) | React app's canvas |
+| `/app/...` | React app | Redirects (301) to the same path without `/app` |
+| `/canvas` | Redirected to `/app/canvas` | React app's canvas (lazy-loaded tldraw) |
 | Built files | `/app/assets/*` | `/app/assets/*` (unchanged) |
 
-Both apps share the same localStorage keys (`task_logger_api_key`,
-`task_logger_session_last_active`), so signing in to one signs in the other.
+The React app kept the old page's localStorage keys (`task_logger_api_key`,
+`task_logger_session_last_active`), so anyone signed in before the cutover
+stays signed in. `static/index.html` is still in the repo (reachable only
+as a file at `/static/index.html`) until it's deleted.
+
+**Rollback:** `git revert` of the cutover commit puts the old page back at
+`/` and the React app back at `/app`.
 
 ---
 
@@ -140,19 +145,19 @@ set as Fly secrets / environment variables.
 .venv/bin/python -m flask --app app run --port 8080
 ```
 
-Serves the old webpage at `/`, the API at `/toggle` `/status` `/api/...`, and the
-docs at `/docs`. The React app at `/app` needs its compiled files present as
+Serves the React app at `/`, the API at `/toggle` `/status` `/api/...`, and the
+docs at `/docs`. The React app needs its compiled files present as
 `web_dist/` next to `app.py` (see below).
 
 **React app (local):**
 
 ```
 cd frontend && npm install && npm run build      # produces frontend/dist/
-cp -R frontend/dist ../web_dist                  # so Flask's /app routes can find it
+cp -R frontend/dist ../web_dist                  # so Flask's page routes can find it
 ```
 
 Or, for live reloading while editing: run Flask as above, then
-`cd frontend && npm run dev` and open `http://localhost:5173/app/` - the Vite
+`cd frontend && npm run dev` and open `http://localhost:5173/` - the Vite
 dev server forwards `/api`, `/toggle` and `/status` to Flask on port 8080.
 
 **Tests:**

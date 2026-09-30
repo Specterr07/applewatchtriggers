@@ -56,7 +56,7 @@ export function SettingsPage() {
                 <LogOut aria-hidden />
                 Log out
               </Button>
-              <p className="mt-2 text-sm text-secondary">Removes the key from this browser, here and in the old app.</p>
+              <p className="mt-2 text-sm text-secondary">Removes the key from this browser.</p>
             </div>
           </Card>
         </SettingsSection>

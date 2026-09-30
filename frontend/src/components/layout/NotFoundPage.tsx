@@ -5,7 +5,7 @@ import { Page } from '@/components/layout/Page'
 import { buttonVariants } from '@/components/ui/Button'
 import { Card } from '@/components/ui/Card'
 
-// Shown for any /app/... URL that doesn't match a screen.
+// Shown for any URL the server sends to the app that doesn't match a screen.
 export function NotFoundPage() {
   return (
     <Page title="Page not found">
