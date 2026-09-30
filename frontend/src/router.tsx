@@ -1,5 +1,5 @@
 // Every screen's URL (spec §5.2). routes/pages.py serves index.html for
-// these paths under /app - keep the two lists in step (tests/test_page_routing.py).
+// exactly these paths - keep the two lists in step (tests/test_page_routing.py).
 
 import { lazy } from 'react'
 import { createBrowserRouter } from 'react-router'

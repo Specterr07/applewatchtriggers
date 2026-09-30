@@ -7,7 +7,7 @@ the blueprints below. The actual routes and logic live in:
     routes/canvas.py    -> /api/canvas (GET/PUT)              (SQLite, canvas.db)
     routes/notes.py     -> /api/notes*                        (SQLite, notes.db + Tigris)
     routes/telegram.py  -> /telegram/webhook, /api/channels/*  (SQLite, channels.db)
-    routes/pages.py     -> / (old webpage), /app/* (React app), /canvas (redirect)
+    routes/pages.py     -> / and screen URLs (React app), /app/* (301 to root)
     services/           -> storage (tasks_db.py, canvas_db.py, notes_db.py,
                            object_storage.py, audio_compression.py,
                            transcription.py), auth.py, time.py

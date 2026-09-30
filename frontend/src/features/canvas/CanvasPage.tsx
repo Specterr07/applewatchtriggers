@@ -25,7 +25,7 @@ export default function CanvasPage() {
   }, [editor, resolvedTheme])
 
   // Phones have no nav on this screen, so Back returns to wherever you came
-  // from - including the old app, which links here via /canvas.
+  // from, or Home when the canvas was opened directly.
   const goBack = () => {
     if (window.history.length > 1) navigate(-1)
     else navigate('/')

@@ -8,8 +8,7 @@ they exist) for what's coming.
 ```mermaid
 flowchart TB
     Watch["📱 Apple Watch Shortcut<br/>GET /toggle?key=..."]
-    Browser["🌐 Browser<br/>static/index.html (old page, at /)<br/>Time Log + Notes tabs"]
-    CanvasApp["🌐 Browser<br/>React app at /app<br/>all screens built; canvas lazy-loaded;<br/>old page still at / until cutover"]
+    CanvasApp["🌐 Browser<br/>React app at /<br/>all screens; canvas lazy-loaded<br/>(/app/* 301-redirects here)"]
     TelegramUser["📱 Me in Telegram"]
     TelegramServers["Telegram Servers<br/>(Bot API)"]
 
@@ -38,7 +37,7 @@ flowchart TB
 
     subgraph FlaskApp["Flask app (app.py registers 5 blueprints)"]
         Auth["services/auth.py<br/>require_key decorator<br/>API_KEY env var"]
-        PagesRoute["routes/pages.py<br/>/  →  static/index.html<br/>/app, /app/*, /app/assets/*  →  web_dist/<br/>/canvas  →  302 /app/canvas"]
+        PagesRoute["routes/pages.py<br/>/, /tasks, /notes, /canvas, …  →  web_dist/index.html<br/>/app/assets/*  →  web_dist/assets<br/>/app, /app/*  →  301 without /app"]
         TasksRoute["routes/tasks.py<br/>/toggle /status<br/>/api/logs, /api/logs/{id}"]
         CanvasRoute["routes/canvas.py<br/>GET/PUT /api/canvas"]
         NotesRoute["routes/notes.py<br/>POST/GET /api/notes<br/>DELETE /api/notes/{id}"]
@@ -51,13 +50,9 @@ flowchart TB
     Machine --> FlaskApp
 
     Watch -->|"?key= query param"| TasksRoute
-    Browser -->|"X-API-Key header"| TasksRoute
-    Browser -->|"X-API-Key header"| NotesRoute
-    Browser -->|"X-API-Key header"| TelegramRoute
     CanvasApp -->|"X-API-Key header"| TasksRoute
     CanvasApp -->|"X-API-Key header"| NotesRoute
     CanvasApp -->|"X-API-Key header"| TelegramRoute
-    Browser -->|"loads page"| PagesRoute
     PagesRoute -.->|"serves compiled app,<br/>which the browser then runs as"| CanvasApp
     CanvasApp -->|"X-API-Key header<br/>(same localStorage keys<br/>as the old page)"| CanvasRoute
 
@@ -157,10 +152,11 @@ file, which calls into `services/*.py` for anything touching a database,
 external API, or the filesystem - so a route file is just "parse the
 request → call a service → shape the JSON response," nothing else.
 
-- **`routes/pages.py`** - no auth. Serves the old webpage (`/`), the
-  *compiled* React app (`/app`, `/app/<path>` → its `index.html`;
-  `/app/assets/*` → its built files), and redirects `/canvas` →
-  `/app/canvas`. Only that explicit list of page URLs returns HTML, so
+- **`routes/pages.py`** - no auth. Serves the *compiled* React app: `/`
+  and each screen URL (`/tasks`, `/tasks/<id>`, `/time-log`, `/notes`,
+  `/notes/<id>`, `/canvas`, `/integrations/<name>`, `/settings`, `/more`)
+  → its `index.html`; `/app/assets/*` → its built files; and 301-redirects
+  the migration-era `/app` URLs to the same path without `/app`. Only that explicit list of page URLs returns HTML, so
   unknown URLs (including unknown `/api/*` paths) still get the JSON 404.
   These are static files; nothing sensitive lives here, which is why
   they're not behind `require_key`.
@@ -231,16 +227,12 @@ memory for the duration of the request.
   currently open. The Shortcut never sends a name (naming is webpage-only),
   and it's the reason `/toggle` stays a plain `GET` with the key as a query
   param instead of, say, a `POST` with a header or body.
-- **The old webpage** (`static/index.html`, at `/`) - a single-file,
-  dependency-free HTML/CSS/JS page with three tabs: **Time Log** (the
-  bento-card grid + task detail view), **Notes** (record/list/play/delete
-  voice notes), and a link to **Canvas** (`/canvas`, which now redirects
-  into the new app).
-- **The new React app** (`frontend/`, at `/app`) - replacing the old page
-  one phase at a time (`docs/features/frontend-redesign.md`). So far: the
+- **The React app** (`frontend/`, at `/`) - replaced the old single-file
+  page (`static/index.html`, no longer served at `/`) one phase at a time,
+  then cut over (`docs/features/frontend-redesign.md`). It has: the
   app shell (sidebar / bottom nav, Light/Dark/System theme), the sign-in
-  gate (same localStorage keys and 24h expiry as the old page, so signing
-  in to one signs in the other), **Home** (running task with a live timer,
+  gate (same localStorage keys and 24h expiry as the old page, so existing
+  sign-ins survived the cutover), **Home** (running task with a live timer,
   today's stats, recent activity, Start/Stop), **Tasks** (search/filter,
   detail with edit, reopen, delete) and **Time Log** (by day, with
   totals) - all reading the same cached `/api/logs` list, so they can't
@@ -251,6 +243,6 @@ memory for the duration of the request.
   Shortcut URL, recent start/stop events), **Telegram** (connect link or
   code, test message), Settings, desktop keyboard shortcuts,
   and the **Canvas**, whose tldraw bundle is lazy-loaded only when
-  `/app/canvas` opens. Start/Stop always asks `/status` first and only then
+  `/canvas` opens. Start/Stop always asks `/status` first and only then
   calls `/toggle`, so a stale screen can't flip the Watch's task the wrong
   way; the Watch-facing endpoints themselves are unchanged.
