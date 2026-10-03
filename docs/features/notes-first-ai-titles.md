@@ -42,7 +42,7 @@ Branch: `feature/notes-first-ai-titles`
 | OpenAI GPT-5 nano / Gemini Flash-Lite | Very cheap. | New account, new key, new SDK, costs money. No real gain. |
 | No LLM - first words of the transcript | Free, no failure mode. | That's what we have today, and it's the problem. |
 
-→ Use `llama-3.1-8b-instant`; the first-words title stays as the fallback.
+→ Use `llama-3.1-8b-instant`; the first-words title stays as the fallback. *(Later found to be shut down - see Decisions, 2026-10-03.)*
 
 **Options I looked at - Home layout:**
 | Option | Good | Bad |
@@ -70,10 +70,10 @@ flowchart TD
     A[Audio uploaded] --> B[Whisper transcribes - Groq]
     B --> C{Transcript empty?}
     C -- yes --> T0[title = null]
-    C -- no --> D[Send first ~1500 chars to llama-3.1-8b-instant]
+    C -- no --> D[Send first ~1500 chars to openai/gpt-oss-20b]
     D --> E{Call OK and title looks sane?}
     E -- yes --> T1[title = cleaned AI title]
-    E -- no: 429 / error / junk --> T0
+    E -- no: 429 / error / junk - logged as [titling] --> T0
     T0 --> F[Compress audio + upload to Tigris]
     T1 --> F
     F --> G[Insert row: transcript, title, audio_key, created_at]
@@ -89,16 +89,17 @@ flowchart LR
     Route --> Pipe[services/note_pipeline.py]
     TGRoute --> Pipe
     Pipe --> STT[services/transcription.py\nWhisper on Groq]
-    Pipe --> Title[services/titling.py  NEW\nllama-3.1-8b-instant on Groq]
+    Pipe --> Title[services/titling.py  NEW\nopenai/gpt-oss-20b on Groq]
     Pipe --> Store[services/object_storage.py\nTigris]
     Pipe --> DB[(notes.db\n+ title column)]
     Web -->|PATCH /api/notes/id  NEW| Route
 ```
 
 ### Decisions
-- **Title model = Groq `llama-3.1-8b-instant`.** Free, already-wired provider; one place to change it (`MODEL` constant in `services/titling.py`).
+- **Title model = Groq `llama-3.1-8b-instant`** *(superseded 2026-10-03 by `openai/gpt-oss-20b` - see below)*. Free, already-wired provider; one place to change it (`MODEL` constant in `services/titling.py`).
 - **The title must never block saving a note.** `generate_title()` never raises - on any failure it returns `None` and the note saves with no title. The UI falls back to the first words.
 - **Inline, not background.** The 8B call is a fraction of a second next to Whisper + ffmpeg, so no job queue. Keeps it simple.
+- **2026-10-03 - model changed to `openai/gpt-oss-20b`.** The backfill titled 0 of 15 notes: Groq had shut down `llama-3.1-8b-instant` on 2026-08-16 (the pricing pages I checked were out of date), and `generate_title()` swallowed the error silently. Fixes: switched to Groq's listed replacement, `openai/gpt-oss-20b` (free tier 30/min, 1,000/day), with `reasoning_effort="low"` and `include_reasoning=False`; every failure is now logged with a `[titling]` prefix so it shows in `fly logs` and in the backfill output. Lesson: "never raise" must not mean "never tell anyone".
 - **Cheap + accurate prompt:** system prompt "Return only a title of 3–7 words for this voice note. Same language as the note. No quotes, no ending punctuation."; `temperature=0`; `max_tokens=20`; send only the first 1500 characters.
 - **Cleanup after the model (`clean_title`, a pure function, unit-tested):** strip quotes/"Title:" prefixes/trailing dots, collapse whitespace, cap at 60 chars; empty → `None`.
 - **DB: `title TEXT NULL` column on `notes`.** Added by `ensure_notes_db()` with a `PRAGMA table_info` check + `ALTER TABLE ADD COLUMN`, so the existing notes.db on the Fly volume upgrades itself on the next request - no manual migration.

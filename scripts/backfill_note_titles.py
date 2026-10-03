@@ -37,7 +37,9 @@ def main():
             time.sleep(SECONDS_BETWEEN_CALLS)
         title = generate_title(note["transcript"])
         if title is None:
-            print(f"  #{note['id']}: skipped (empty transcript or the title call failed)")
+            # services/titling.py prints the real reason on the line above.
+            reason = "empty transcript" if not (note["transcript"] or "").strip() else "title call failed - see the [titling] line above"
+            print(f"  #{note['id']}: skipped ({reason})")
             continue
         notes_db.update_note_title(note["id"], title)
         titled += 1
