@@ -1,5 +1,6 @@
 """
-Short AI titles for voice notes, via a small, fast LLM on Groq.
+Short AI titles for voice notes, via a small, fast LLM on Groq
+(openai/gpt-oss-20b).
 
 A transcript on its own is hard to scan in a list, so every new note gets
 a 3-7 word title. Uses the same Groq key and SDK as Whisper
@@ -13,15 +14,25 @@ the first words of the transcript.
 
 import os
 import re
+import sys
 
 from groq import Groq
 
 GROQ_API_KEY = os.environ.get("GROQ_API_KEY")
 
-# Small 8B model: a 3-7 word title is a tiny task, so a big model would
-# just be slower and use up more of the free-tier limits. Swap to
-# "llama-3.3-70b-versatile" here if titles ever feel off.
-MODEL = "llama-3.1-8b-instant"
+# Groq's smallest current chat model. (The first choice,
+# llama-3.1-8b-instant, was shut down by Groq on 2026-08-16 - which is why
+# the error logging below exists.) Groq lists retirements at
+# https://console.groq.com/docs/deprecations - if titles stop appearing,
+# check there first and swap the name here.
+# Free tier: 30 requests/min, 1,000/day - far more than voice notes need.
+MODEL = "openai/gpt-oss-20b"
+
+# gpt-oss "thinks" before answering, and that thinking counts against the
+# token cap. A title needs almost none, so: least thinking, don't send the
+# thinking back, and a cap with room for a little thinking + the title.
+REASONING_EFFORT = "low"
+MAX_COMPLETION_TOKENS = 300
 
 # The topic of a voice note is almost always in its first few sentences,
 # so we only send the start. Keeps every call small and the cost flat,
@@ -81,7 +92,10 @@ def generate_title(transcript):
     made. Never raises.
     """
     text = (transcript or "").strip()
-    if not text or not GROQ_API_KEY:
+    if not text:
+        return None
+    if not GROQ_API_KEY:
+        print("[titling] GROQ_API_KEY is not set - skipping the title", file=sys.stderr)
         return None
 
     try:
@@ -94,13 +108,16 @@ def generate_title(transcript):
             ],
             # 0 = always the most likely answer: consistent, no creative wandering.
             temperature=0,
-            # A 7-word title is ~10 tokens; this cap stops a rambling reply early.
-            max_tokens=20,
+            reasoning_effort=REASONING_EFFORT,
+            include_reasoning=False,
+            max_completion_tokens=MAX_COMPLETION_TOKENS,
         )
         raw = response.choices[0].message.content
-    except Exception:
-        # Rate limit (429), network, Groq outage, bad key - all the same
-        # to us: no title this time, the note still saves.
+    except Exception as e:
+        # Rate limit (429), network, Groq outage, bad key, retired model -
+        # all the same to us: no title this time, the note still saves.
+        # But say why (it shows up in `fly logs`), or failures are invisible.
+        print(f"[titling] title call failed: {type(e).__name__}: {e}", file=sys.stderr)
         return None
 
     return clean_title(raw)

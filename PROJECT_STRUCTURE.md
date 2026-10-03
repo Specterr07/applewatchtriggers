@@ -12,7 +12,7 @@ A small **Flask** app that does three things:
    browser that drew it.
 3. **Notes** — record a voice note in the browser; the server transcribes it
    (Groq's Whisper API), gives it a short AI title (Groq's
-   `llama-3.1-8b-instant`, optional - never blocks the save), re-encodes it
+   `openai/gpt-oss-20b`, optional - never blocks the save), re-encodes it
    to a small mono file (ffmpeg), and stores the compressed audio in Tigris
    object storage plus the transcript and title in SQLite (`notes.db`). The
    original high-quality upload is never kept. Notes are the app's main job:
@@ -41,7 +41,7 @@ pending deletion (see "static/ and frontend/" below).
 | --- | --- | --- |
 | `app.py` | Just app wiring: creates the Flask app, sets up Swagger docs, registers the blueprints below, and the 404 handler. No routes or storage logic live here anymore. | Kept intentionally tiny (~50 lines) so it's obvious at a glance what the app is made of. |
 | `routes/` | One file per feature's HTTP routes: `tasks.py` (`/toggle`, `/status`, `/api/logs*`), `canvas.py` (`/api/canvas`, GET/PUT), `notes.py` (`/api/notes*`, incl. `PATCH /api/notes/<id>` to rename), `telegram.py` (`/telegram/webhook`, `/api/channels/telegram/link`, `/api/channels/test`), `pages.py` (`/`, `/tasks`, `/tasks/<int:id>`, `/time-log`, `/notes`, `/notes/<int:id>`, `/canvas`, `/integrations/<name>`, `/settings`, `/more` → the React app's `index.html`; `/app/assets/<file>` → its built files; `/app` + `/app/<path>` → 301 to the same path without `/app`). Only that explicit list of page URLs returns HTML; everything else still gets `app.py`'s JSON 404. | Each route file only parses the request, calls into `services/`, and shapes the JSON response - no file/database code mixed in. |
-| `services/` | Storage and cross-cutting logic the routes call into: `tasks_db.py` (SQLite CRUD for tasks), `canvas_db.py` (SQLite for the canvas's single saved snapshot), `notes_db.py` (SQLite for note metadata, incl. the nullable `title` column - added in place to older databases), `channels_db.py` (SQLite for Telegram links, one-time codes, seen updates), `channels.py` (channel abstraction & `send_to_user`), `telegram.py` (Telegram Bot API wrapper), `note_pipeline.py` (shared audio note ingest pipeline), `object_storage.py` (Tigris via boto3 - upload/delete/presigned playback URLs), `audio_compression.py` (ffmpeg re-encode), `transcription.py` (Groq Whisper), `titling.py` (short AI note titles via Groq `llama-3.1-8b-instant`; never raises - returns `None` on any failure), `auth.py` (the `require_key` decorator), `time.py` (`local_now()`/`TIMEZONE`), `config.py` (`DATA_DIR`). | Keeps file/database/external-API code out of the route files, and means the same storage/service functions aren't duplicated across routes that need them. |
+| `services/` | Storage and cross-cutting logic the routes call into: `tasks_db.py` (SQLite CRUD for tasks), `canvas_db.py` (SQLite for the canvas's single saved snapshot), `notes_db.py` (SQLite for note metadata, incl. the nullable `title` column - added in place to older databases), `channels_db.py` (SQLite for Telegram links, one-time codes, seen updates), `channels.py` (channel abstraction & `send_to_user`), `telegram.py` (Telegram Bot API wrapper), `note_pipeline.py` (shared audio note ingest pipeline), `object_storage.py` (Tigris via boto3 - upload/delete/presigned playback URLs), `audio_compression.py` (ffmpeg re-encode), `transcription.py` (Groq Whisper), `titling.py` (short AI note titles via Groq `openai/gpt-oss-20b`; never raises - returns `None` on any failure), `auth.py` (the `require_key` decorator), `time.py` (`local_now()`/`TIMEZONE`), `config.py` (`DATA_DIR`). | Keeps file/database/external-API code out of the route files, and means the same storage/service functions aren't duplicated across routes that need them. |
 | `requirements-dev.txt` | Development-only Python tools (`pytest`), on top of `requirements.txt`. Install with `.venv/bin/pip install -r requirements-dev.txt`. | Keeps test tooling out of the production image. |
 | `tests/` | pytest suite: `test_watch_contract.py` pins the Apple Watch contract (`/toggle`, `/status`, `?key=` + `X-API-Key`, response shapes, 401s); `test_page_routing.py` checks which URLs return the React app vs. JSON 404s, the `/app/*` → root 301s, `/`, and `/docs`; `test_note_titles.py` covers title cleanup, a failed title never blocking a save, upgrading an old `notes.db`, and `PATCH /api/notes/<id>`. `conftest.py` points `DATA_DIR` at a temp folder and sets a test `API_KEY` before the app is imported. Run with `.venv/bin/python -m pytest`. | The Watch Shortcut can't be updated alongside a deploy, so its contract needs a guard; the migration changes page routing, which must never swallow API errors. |
 | `scripts/` | One-off maintenance scripts. `backfill_note_titles.py` gives an AI title to every note that has none (run once on Fly with `fly ssh console -C "python scripts/backfill_note_titles.py"`; safe to re-run). Copied into the Docker image so it can run on the server. | Old notes predate titles; a script is simpler than UI that's useless after one use. |
@@ -118,9 +118,9 @@ storing a permanent one, since a stored URL would just be a presigned
 link quietly expiring later - the object key is the only part that's
 actually stable.
 
-Titles come from `services/titling.py` (Groq `llama-3.1-8b-instant`, first
-1500 characters, `temperature=0`, `max_tokens=20`), called inline right after
-transcription. It never raises: if Groq is rate-limited or down, the note
+Titles come from `services/titling.py` (Groq `openai/gpt-oss-20b`, first
+1500 characters, `temperature=0`, low reasoning effort), called inline right
+after transcription. Failures are logged with a `[titling]` prefix (`fly logs`). It never raises: if Groq is rate-limited or down, the note
 saves with `title = NULL` and the app shows the transcript's first words.
 
 Needs `GROQ_API_KEY` (transcription + titles) and `AWS_ACCESS_KEY_ID` /

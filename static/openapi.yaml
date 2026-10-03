@@ -256,7 +256,7 @@ paths:
       summary: Upload and save a voice note
       description: >
         Transcribes the recording (Groq Whisper), gives it a short AI
-        title (Groq llama-3.1-8b-instant - optional, null if it fails),
+        title (Groq openai/gpt-oss-20b - optional, null if it fails),
         re-encodes it to a small
         mono file (ffmpeg), and stores the compressed audio in Tigris -
         the original high-quality upload is never kept. All of this

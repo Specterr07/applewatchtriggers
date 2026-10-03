@@ -48,7 +48,7 @@ def test_generate_title_skips_empty_transcript(monkeypatch):
     assert titling.generate_title("   ") is None
 
 
-def test_generate_title_returns_none_when_groq_fails(monkeypatch):
+def test_generate_title_returns_none_when_groq_fails(monkeypatch, capsys):
     class BrokenGroq:
         def __init__(self, **kwargs):
             raise ConnectionError("rate limited")
@@ -56,6 +56,8 @@ def test_generate_title_returns_none_when_groq_fails(monkeypatch):
     monkeypatch.setattr(titling, "GROQ_API_KEY", "fake")
     monkeypatch.setattr(titling, "Groq", BrokenGroq)
     assert titling.generate_title("Buy milk and eggs") is None
+    # ...but the reason is logged, so a failure is never silent.
+    assert "rate limited" in capsys.readouterr().err
 
 
 def test_generate_title_sends_only_the_start_of_long_notes(monkeypatch):
@@ -77,6 +79,9 @@ def test_generate_title_sends_only_the_start_of_long_notes(monkeypatch):
     assert titling.generate_title("a" * 10_000) == "Long rambling note"
     assert len(sent["messages"][1]["content"]) == titling.MAX_INPUT_CHARS
     assert sent["temperature"] == 0
+    assert sent["model"] == titling.MODEL
+    # The model's thinking must not be sent back as part of the title.
+    assert sent["include_reasoning"] is False
 
 
 # --- pipeline: a failed title never fails the save --------------------------
