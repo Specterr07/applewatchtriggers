@@ -7,7 +7,8 @@ import { cn } from '@/utils/cn'
 
 const MORE_TAB: NavItem = { path: '/more', label: 'More', icon: Ellipsis }
 
-// Phone navigation (spec §5.1): Home · Tasks · Capture · Notes · More.
+// Phone navigation: Home · Notes · Capture · Tasks · More. Notes sit next
+// to Home because recording notes is the app's main job.
 // Fixed to the bottom and padded for the iPhone home indicator.
 export function BottomNav() {
   const { pathname } = useLocation()
@@ -22,7 +23,7 @@ export function BottomNav() {
     >
       <ul className="grid h-16 grid-cols-5">
         <BottomNavLink item={OVERVIEW} />
-        <BottomNavLink item={TASKS} />
+        <BottomNavLink item={NOTES} />
         <li className="grid place-items-center">
           <button
             type="button"
@@ -33,7 +34,7 @@ export function BottomNav() {
             <Plus aria-hidden className="size-6" strokeWidth={2.25} />
           </button>
         </li>
-        <BottomNavLink item={NOTES} />
+        <BottomNavLink item={TASKS} />
         <BottomNavLink item={MORE_TAB} forceActive={isInMoreSection} />
       </ul>
     </nav>

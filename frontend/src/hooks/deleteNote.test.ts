@@ -9,7 +9,7 @@ import type { Note } from '@/types/note'
 
 vi.mock('@/api/notes', () => ({ deleteNote: vi.fn(), listNotes: vi.fn() }))
 
-const NOTES: Note[] = [{ id: 1, transcript: 'Keep me', audio_url: null, created_at: '2026-09-30 09:00:00' }]
+const NOTES: Note[] = [{ id: 1, title: null, transcript: 'Keep me', audio_url: null, created_at: '2026-09-30 09:00:00' }]
 
 // Runs the real delete mutation (as useDeleteNote would) against a cache
 // that already holds the notes list.

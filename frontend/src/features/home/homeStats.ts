@@ -49,7 +49,7 @@ export function buildRecentActivity(tasks: Task[], notes: Note[] | undefined, li
     }
   }
   for (const note of notes ?? []) {
-    events.push({ key: `note-${note.id}`, kind: 'note', at: note.created_at, title: getNoteTitle(note.transcript), detail: 'Voice note' })
+    events.push({ key: `note-${note.id}`, kind: 'note', at: note.created_at, title: getNoteTitle(note), detail: 'Voice note' })
   }
 
   // The fixed "YYYY-MM-DD HH:MM:SS" format sorts correctly as plain text.

@@ -12,7 +12,7 @@ function task(id: number, start: string, end: string | null, duration: number | 
 }
 
 function note(id: number, createdAt: string, transcript = 'Buy milk'): Note {
-  return { id, transcript, audio_url: null, created_at: createdAt }
+  return { id, title: null, transcript, audio_url: null, created_at: createdAt }
 }
 
 describe('computeTodayStats', () => {

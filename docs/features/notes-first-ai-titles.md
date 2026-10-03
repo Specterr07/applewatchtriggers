@@ -1,6 +1,6 @@
 # Notes first + AI titles
 
-**Status:** 🔒 Locked  <!-- 1. Think → 2. Draw → 🔒 Locked → 3. Build → ✅ Shipped -->
+**Status:** 3. Build  <!-- 1. Think → 2. Draw → 🔒 Locked → 3. Build → ✅ Shipped -->
 
 Branch: `feature/notes-first-ai-titles`
 
@@ -103,7 +103,7 @@ flowchart LR
 - **Cleanup after the model (`clean_title`, a pure function, unit-tested):** strip quotes/"Title:" prefixes/trailing dots, collapse whitespace, cap at 60 chars; empty → `None`.
 - **DB: `title TEXT NULL` column on `notes`.** Added by `ensure_notes_db()` with a `PRAGMA table_info` check + `ALTER TABLE ADD COLUMN`, so the existing notes.db on the Fly volume upgrades itself on the next request - no manual migration.
 - **API:** `title` added to every note in responses (nullable). New `PATCH /api/notes/<id>` with `{"title": "..."}` for manual edits. `static/openapi.yaml` updated.
-- **Frontend:** `Note.title: string | null`; `getNoteTitle(note)` = `title ?? first words`. List shows title (bold) + one-line preview. Note detail has an editable title. Search matches title + transcript. New pure helper `groupNotesByDay()` for Today / Yesterday / Earlier (unit-tested).
+- **Frontend:** `Note.title: string | null`; `getNoteTitle(note)` = `title ?? first words`. List shows title (bold) + one-line preview. Note detail has an editable title. Search matches title + transcript. New pure helper `groupNotesByDay()` - one group per day: Today / Yesterday / "Mon, 28 Sep" (unit-tested).
 - **Home:** Record card on top → recent notes grouped by day → "See all notes" link. Running-task strip shown only while a task runs. Today's task stats move off Home (still on Tasks / Time Log).
 - **Sidebar order:** Home, Notes, Tasks, Time Log, Canvas. **Phone bottom nav:** Home · Notes · ➕ (Capture sheet, unchanged) · Tasks · More.
 - **Backfill = one-time script**, not a UI button: old notes are a fixed, small set, so a button would be UI that's useless after one use. The script sleeps ~2s between calls to stay under the Groq free-tier limit of 30 requests/min.
@@ -113,25 +113,31 @@ flowchart LR
 ## 3. Build
 
 **Backend**
-- [ ] `services/titling.py` - `clean_title()` + `generate_title()` (never raises)
-- [ ] `services/notes_db.py` - `title` column migration, `insert_note(..., title)`, `update_note_title()`
-- [ ] `services/note_pipeline.py` - call `generate_title()` after transcription
-- [ ] `routes/notes.py` - include `title`; add `PATCH /api/notes/<id>`
-- [ ] `routes/telegram.py` - reply with title
-- [ ] `scripts/backfill_note_titles.py` - title every note whose title is NULL (safe to re-run)
-- [ ] Tests: `clean_title`, pipeline saves when titling fails, DB migration on an old-shape table, PATCH route
-- [ ] `static/openapi.yaml`
+- [x] `services/titling.py` - `clean_title()` + `generate_title()` (never raises)
+- [x] `services/notes_db.py` - `title` column migration, `insert_note(..., title)`, `update_note_title()`
+- [x] `services/note_pipeline.py` - call `generate_title()` after transcription
+- [x] `routes/notes.py` - include `title`; add `PATCH /api/notes/<id>`
+- [x] `routes/telegram.py` - reply with title
+- [x] `scripts/backfill_note_titles.py` - title every note whose title is NULL (safe to re-run)
+- [x] Tests: `clean_title`, pipeline saves when titling fails, DB migration on an old-shape table, PATCH route
+- [x] `static/openapi.yaml`
 
 **Frontend**
-- [ ] `types/note.ts` - `title`
-- [ ] `noteText.ts` - `getNoteTitle(note)`, search on title, `groupNotesByDay()` + tests
-- [ ] `NoteList` / `NoteDetail` - show title, edit title (`useUpdateNoteTitle` mutation)
-- [ ] `HomePage` - notes-first layout + small running-task strip
-- [ ] Nav: sidebar order + bottom nav `Home · Notes · ➕ · Tasks · More`
+- [x] `types/note.ts` - `title`
+- [x] `noteText.ts` - `getNoteTitle(note)`, search on title, `groupNotesByDay()` + tests
+- [x] `NoteList` / `NoteDetail` - show title, edit title (`useUpdateNoteTitle` mutation)
+- [x] `HomePage` - notes-first layout + small running-task strip
+- [x] Nav: sidebar order + bottom nav `Home · Notes · ➕ · Tasks · More`
 
 **Wrap-up**
-- [ ] `PROJECT_STRUCTURE.md` (new service, new script, new endpoint, new column)
-- [ ] Run pytest + vitest + `npm run build`; check Home on phone width
+- [x] `PROJECT_STRUCTURE.md` (new service, new script, new endpoint, new column)
+- [x] Run pytest + vitest + `npm run build`; check Home on phone width
 - [ ] Deploy to Fly, record a note, confirm the title appears
 
 **What actually got built / what I learned:**
+- Built as planned. Two small additions found while building:
+  - The Docker image didn't include a `scripts/` folder, so the backfill script couldn't have run on Fly - added `COPY scripts ./scripts` to the Dockerfile.
+  - Days are grouped one heading per day (Today, Yesterday, Mon 28 Sep…) instead of a single "Earlier" bucket - reuses the existing `formatDayHeading()` and reads better.
+- The sidebar's "Overview" is now called "Home" everywhere, since it's no longer an overview of tasks.
+- `ActiveSessionCard` and `TodayStats` were removed from Home (replaced by the slim `RunningTaskStrip`); today's task totals are still on Time Log.
+- Tests: 15 new pytest tests (47 total), 4 new vitest tests (66 total), build + lint clean. Checked Home at desktop and phone widths and renamed a note end to end on a local copy.

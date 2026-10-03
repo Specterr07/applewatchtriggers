@@ -1,26 +1,52 @@
 import { describe, expect, it, vi } from 'vitest'
 
 import { AUDIO_URL_MAX_AGE_MS, isAudioUrlStale, recoverPlayback } from '@/features/notes/audioRecovery'
-import { filterNotes, getNotesViewState, getNoteTitle } from '@/features/notes/noteText'
+import { filterNotes, getNotesViewState, getNoteTitle, groupNotesByDay, hasRealTitle } from '@/features/notes/noteText'
 import type { Note } from '@/types/note'
 
-function note(id: number, transcript: string): Note {
-  return { id, transcript, audio_url: `https://audio/${id}?sig=a`, created_at: '2026-09-30 09:00:00' }
+function note(id: number, transcript: string, title: string | null = null, created_at = '2026-09-30 09:00:00'): Note {
+  return { id, title, transcript, audio_url: `https://audio/${id}?sig=a`, created_at }
 }
 
 const NOTES = [note(3, 'Call the bank about the card'), note(2, 'Grocery list:\nmilk, eggs'), note(1, 'Idea for the BANK app')]
 
 describe('note text', () => {
-  it('uses the first transcript line as the title', () => {
-    expect(getNoteTitle('Grocery list:\nmilk, eggs')).toBe('Grocery list:')
-    expect(getNoteTitle('   ')).toBe('Voice note')
-    expect(getNoteTitle('x'.repeat(100))).toHaveLength(80)
+  it('uses the AI title when there is one', () => {
+    expect(getNoteTitle({ title: 'Weekend groceries', transcript: 'milk, eggs' })).toBe('Weekend groceries')
+    expect(hasRealTitle({ title: 'Weekend groceries', transcript: '' })).toBe(true)
+  })
+
+  it('falls back to the first transcript line when there is no title', () => {
+    expect(getNoteTitle({ title: null, transcript: 'Grocery list:\nmilk, eggs' })).toBe('Grocery list:')
+    expect(getNoteTitle({ title: '  ', transcript: 'Grocery list' })).toBe('Grocery list')
+    expect(getNoteTitle({ title: null, transcript: '   ' })).toBe('Voice note')
+    expect(getNoteTitle({ title: null, transcript: 'x'.repeat(100) })).toHaveLength(80)
+    expect(hasRealTitle({ title: null, transcript: 'x' })).toBe(false)
   })
 
   it('searches transcripts case-insensitively, keeping newest first', () => {
     expect(filterNotes(NOTES, 'bank').map((n) => n.id)).toEqual([3, 1])
     expect(filterNotes(NOTES, 'EGGS').map((n) => n.id)).toEqual([2])
     expect(filterNotes(NOTES, '  ')).toBe(NOTES)
+  })
+
+  it('searches titles too', () => {
+    const titled = [note(5, 'we need to sort out the flat', 'Rent agreement renewal'), ...NOTES]
+    expect(filterNotes(titled, 'rent').map((n) => n.id)).toEqual([5])
+  })
+
+  it('groups newest-first notes by day, keeping the order', () => {
+    const now = { year: 2026, month: 10, day: 3, hour: 12, minute: 0, second: 0 }
+    const notes = [
+      note(4, 'd', null, '2026-10-03 11:00:00'),
+      note(3, 'c', null, '2026-10-03 08:00:00'),
+      note(2, 'b', null, '2026-10-02 20:00:00'),
+      note(1, 'a', null, '2026-09-28 09:00:00'),
+    ]
+    const groups = groupNotesByDay(notes, now)
+    expect(groups.map((g) => g.heading.split(',')[0])).toEqual(['Today', 'Yesterday', expect.any(String)])
+    expect(groups.map((g) => g.notes.map((n) => n.id))).toEqual([[4, 3], [2], [1]])
+    expect(groupNotesByDay([], now)).toEqual([])
   })
 })
 

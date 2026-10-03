@@ -2,6 +2,9 @@
 
 export type Note = {
   id: number
+  // Short AI title (services/titling.py) or one typed by hand; null when
+  // none was made - show getNoteTitle() rather than reading this directly.
+  title: string | null
   transcript: string
   // Presigned playback link (expires after ~1h); null if one couldn't be made.
   audio_url: string | null
@@ -16,6 +19,12 @@ export type ListNotesResponse = {
 
 // POST /api/notes
 export type CreateNoteResponse = {
+  ok: true
+  note: Note
+}
+
+// PATCH /api/notes/<id>
+export type UpdateNoteResponse = {
   ok: true
   note: Note
 }

@@ -17,11 +17,11 @@ export type NavItem = {
   path: string
   label: string
   icon: LucideIcon
-  // Some screens are named differently in the mobile nav (Overview -> Home).
+  // A shorter label for the phone's bottom nav, when the full one is too long.
   mobileLabel?: string
 }
 
-export const OVERVIEW: NavItem = { path: '/', label: 'Overview', mobileLabel: 'Home', icon: LayoutDashboard }
+export const OVERVIEW: NavItem = { path: '/', label: 'Home', icon: LayoutDashboard }
 export const TASKS: NavItem = { path: '/tasks', label: 'Tasks', icon: ListChecks }
 export const TIME_LOG: NavItem = { path: '/time-log', label: 'Time Log', icon: Clock }
 export const NOTES: NavItem = { path: '/notes', label: 'Notes', icon: Mic }
@@ -31,7 +31,7 @@ export const TELEGRAM: NavItem = { path: '/integrations/telegram', label: 'Teleg
 export const SETTINGS: NavItem = { path: '/settings', label: 'Settings', icon: Settings }
 
 // Desktop sidebar sections.
-export const SIDEBAR_MAIN = [OVERVIEW, TASKS, TIME_LOG, NOTES, CANVAS]
+export const SIDEBAR_MAIN = [OVERVIEW, NOTES, TASKS, TIME_LOG, CANVAS]
 export const SIDEBAR_INTEGRATIONS = [APPLE_WATCH, TELEGRAM]
 
 // Mobile: what sits behind the "More" tab (everything not in the bottom bar).

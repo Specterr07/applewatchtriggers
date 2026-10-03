@@ -34,6 +34,8 @@ COPY app.py .
 COPY routes ./routes
 COPY services ./services
 COPY static ./static
+# One-off maintenance scripts (e.g. backfill_note_titles.py), run with `fly ssh console`.
+COPY scripts ./scripts
 
 # Copy ONLY the compiled React app from stage 1 - no Node, no npm,
 # no source files end up in this final image. routes/pages.py serves it
