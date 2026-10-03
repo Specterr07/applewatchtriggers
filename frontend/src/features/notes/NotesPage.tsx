@@ -13,14 +13,15 @@ import { Skeleton } from '@/components/ui/Skeleton'
 import { MEDIA_HAS_SIDEBAR } from '@/config'
 import { useCapture } from '@/features/capture/CaptureProvider'
 import { NoteDetail } from '@/features/notes/NoteDetail'
-import { NoteList } from '@/features/notes/NoteList'
+import { GroupedNoteList } from '@/features/notes/NoteList'
 import { filterNotes, getNotesViewState } from '@/features/notes/noteText'
 import { useCloseDetail } from '@/hooks/useCloseDetail'
 import { useMediaQuery } from '@/hooks/useMediaQuery'
 import { useNotes } from '@/hooks/useNotes'
 import { useNow } from '@/hooks/useNow'
 
-// Voice notes (spec §4.6): record, search what's loaded, open one to play,
+// Voice notes (spec §4.6): record, search what's loaded (grouped by day),
+// open one to play,
 // read and delete it. /notes/:noteId opens a note - a drawer with a
 // sidebar (same pattern as tasks), a full screen on phones.
 export function NotesPage() {
@@ -49,7 +50,7 @@ export function NotesPage() {
     <Page title="Notes" description="Voice notes, transcribed - from here or Telegram." actions={recordButton}>
       {(viewState === 'list' || viewState === 'no-matches') && (
         <div className="mb-4">
-          <SearchInput value={query} onChange={setQuery} label="Search notes" placeholder="Search transcripts" />
+          <SearchInput value={query} onChange={setQuery} label="Search notes" placeholder="Search titles and transcripts" />
         </div>
       )}
       {notesQuery.isError && notesQuery.data && (
@@ -76,11 +77,11 @@ export function NotesPage() {
       )}
       {viewState === 'no-matches' && (
         <Card>
-          <EmptyState icon={SearchX} title="No matching notes" description="Search looks through transcripts."
+          <EmptyState icon={SearchX} title="No matching notes" description="Search looks through titles and transcripts."
             action={<Button variant="secondary" onClick={() => setQuery('')}>Clear search</Button>} />
         </Card>
       )}
-      {viewState === 'list' && <NoteList notes={matches} now={now} />}
+      {viewState === 'list' && <GroupedNoteList notes={matches} now={now} />}
 
       {hasSidebar && selectedNoteId !== null && (
         <Drawer open onOpenChange={(open) => !open && closeDetail()} title="Note">

@@ -13,7 +13,7 @@ export function NotFoundPage() {
         <Compass aria-hidden className="size-6 text-secondary" />
         <p className="text-secondary">This link doesn't match any screen in Sheev.</p>
         <Link to="/" className={buttonVariants({ variant: 'secondary' })}>
-          Go to Overview
+          Go to Home
         </Link>
       </Card>
     </Page>

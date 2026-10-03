@@ -1,4 +1,5 @@
-import { CloudOff, Plus, RotateCw } from 'lucide-react'
+import { ArrowRight, CloudOff, Mic, NotebookPen, RotateCw } from 'lucide-react'
+import { Link } from 'react-router'
 
 import { Page } from '@/components/layout/Page'
 import { Button } from '@/components/ui/Button'
@@ -6,142 +7,128 @@ import { Card } from '@/components/ui/Card'
 import { EmptyState } from '@/components/ui/EmptyState'
 import { Skeleton } from '@/components/ui/Skeleton'
 import { useCapture } from '@/features/capture/CaptureProvider'
-import { ActiveSessionCard } from '@/features/home/ActiveSessionCard'
-import { buildRecentActivity, computeTodayStats } from '@/features/home/homeStats'
-import { RecentActivity } from '@/features/home/RecentActivity'
-import { TodayStats } from '@/features/home/TodayStats'
+import { RunningTaskStrip } from '@/features/home/RunningTaskStrip'
+import { GroupedNoteList } from '@/features/notes/NoteList'
 import { useGuardedToggle } from '@/hooks/useGuardedToggle'
 import { useNotes } from '@/hooks/useNotes'
 import { useNow } from '@/hooks/useNow'
 import { findActiveTask, useTasks } from '@/hooks/useTasks'
-import { formatLongDate, greetingFor } from '@/utils/time'
+import { formatLongDate, greetingFor, toDateKey } from '@/utils/time'
 
-// Home also refreshes on this interval (only while the tab is visible), so
-// a task started or stopped from the Watch shows up within a minute.
+// Home also refreshes tasks on this interval (only while the tab is
+// visible), so a task started or stopped from the Watch shows up within a minute.
 const HOME_REFRESH_MS = 60_000
 
-// Home / Overview (spec §5.3): the running task, today's numbers, recent activity.
+// How many of the newest notes Home shows; the rest are on /notes.
+const RECENT_NOTES_LIMIT = 8
+
+// Home: notes first. A big Record button, the latest notes grouped by day,
+// and a slim running-task strip - tasks are the secondary job of the app.
 export function HomePage() {
-  const tasksQuery = useTasks({ refetchIntervalMs: HOME_REFRESH_MS })
   const notesQuery = useNotes()
+  const tasksQuery = useTasks({ refetchIntervalMs: HOME_REFRESH_MS })
   const activeTask = findActiveTask(tasksQuery.data)
-  // Tick every second only while a timer is on screen; otherwise just keep
-  // the greeting and "today" current.
+  // Tick every second only while a timer is on screen.
   const now = useNow(activeTask ? 1000 : 30_000)
   const { toggle, isPending } = useGuardedToggle()
-  const { openCapture, openStartTask } = useCapture()
+  const { openRecorder, openStartTask } = useCapture()
 
-  const header = {
-    title: greetingFor(now.hour),
-    description: formatLongDate(now),
-    // Phones already have Capture in the bottom nav, so this is tablet/desktop only.
-    actions: (
-      <Button variant="secondary" onClick={openCapture} className="hidden md:inline-flex">
-        <Plus aria-hidden />
-        Capture
-      </Button>
-    ),
-  }
-
-  if (tasksQuery.isPending) {
-    return (
-      <Page {...header}>
-        <HomeSkeleton />
-      </Page>
-    )
-  }
-
-  if (tasksQuery.isError && !tasksQuery.data) {
-    return (
-      <Page {...header}>
-        <Card>
-          <EmptyState
-            tone="error"
-            icon={CloudOff}
-            title="Couldn't load your tasks"
-            description={tasksQuery.error.message}
-            action={<RetryButton onClick={() => void tasksQuery.refetch()} />}
-          />
-        </Card>
-      </Page>
-    )
-  }
-
-  const tasks = tasksQuery.data
-  const stats = computeTodayStats(tasks, notesQuery.data, now)
-  const events = buildRecentActivity(tasks, notesQuery.data)
+  const notes = notesQuery.data ?? []
+  const todayKey = toDateKey(now)
+  const notesToday = notes.filter((note) => note.created_at.startsWith(todayKey)).length
 
   return (
-    <Page {...header}>
-      {tasksQuery.isError && (
-        // We still have earlier data, so show it - but say it may be out of date.
-        <p role="status" className="mb-4 flex items-center gap-2 text-sm text-secondary-on-bg">
-          <CloudOff aria-hidden className="size-4" />
-          Couldn't refresh - showing the last loaded data.
-          <button type="button" className="cursor-pointer font-medium text-accent-text" onClick={() => void tasksQuery.refetch()}>
-            Retry
-          </button>
-        </p>
-      )}
+    <Page title={greetingFor(now.hour)} description={formatLongDate(now)}>
+      <div className="flex flex-col gap-6">
+        <RecordCard onRecord={openRecorder} notesToday={notesToday} />
 
-      {/* Phones: session, today, activity. Desktop: session and activity in a
-          wide column, today's numbers in a narrow column beside them.
-          grid-cols-1 (not the implicit column) so the column is exactly the
-          screen's width and long task names wrap or truncate inside it. */}
-      <div className="grid grid-cols-1 gap-6 lg:grid-cols-3 lg:grid-rows-[auto_1fr] lg:gap-x-8">
-        <div className="lg:col-span-2">
-          <ActiveSessionCard
+        {/* Tasks failing to load only hides this strip - notes still work. */}
+        {tasksQuery.data && (
+          <RunningTaskStrip
             activeTask={activeTask}
             now={now}
             isPending={isPending}
             onStart={openStartTask}
             onStop={() => void toggle({ action: 'End' })}
           />
-        </div>
-        <div className="lg:col-start-3 lg:row-span-2 lg:row-start-1">
-          <TodayStats stats={stats} />
-        </div>
-        <div className="lg:col-span-2">
-          <RecentActivity
-            events={events}
-            now={now}
-            footer={
-              notesQuery.isError && (
-                <p className="flex items-center gap-2 border-t border-border px-4 py-3 text-sm text-secondary">
-                  Voice notes couldn't be loaded.
-                  <button type="button" className="cursor-pointer font-medium text-accent-text" onClick={() => void notesQuery.refetch()}>
+        )}
+
+        <section aria-labelledby="recent-notes-heading">
+          <div className="mb-3 flex items-center justify-between gap-3">
+            <h2 id="recent-notes-heading" className="text-md font-semibold">
+              Recent notes
+            </h2>
+            {notes.length > 0 && (
+              <Link to="/notes" className="flex items-center gap-1 font-medium text-accent-text">
+                See all
+                <ArrowRight aria-hidden className="size-4" />
+              </Link>
+            )}
+          </div>
+
+          {notesQuery.isError && notesQuery.data && (
+            // We still have earlier notes, so show them - but say they may be out of date.
+            <p role="status" className="mb-3 flex items-center gap-2 text-sm text-secondary-on-bg">
+              <CloudOff aria-hidden className="size-4" />
+              Couldn't refresh - showing the last loaded notes.
+            </p>
+          )}
+
+          {notesQuery.isPending ? (
+            <div role="status" aria-label="Loading" className="flex flex-col gap-2">
+              {Array.from({ length: 4 }, (_, index) => <Skeleton key={index} className="h-16 rounded-card" />)}
+            </div>
+          ) : notesQuery.isError && !notesQuery.data ? (
+            <Card>
+              <EmptyState
+                tone="error"
+                icon={CloudOff}
+                title="Couldn't load your notes"
+                description={notesQuery.error.message}
+                action={
+                  <Button variant="secondary" onClick={() => void notesQuery.refetch()}>
+                    <RotateCw aria-hidden />
                     Retry
-                  </button>
-                </p>
-              )
-            }
-          />
-        </div>
+                  </Button>
+                }
+              />
+            </Card>
+          ) : notes.length === 0 ? (
+            <Card>
+              <EmptyState
+                icon={NotebookPen}
+                title="No notes yet"
+                description="Record your first one above, or send a voice note to your Telegram bot."
+              />
+            </Card>
+          ) : (
+            <GroupedNoteList notes={notes.slice(0, RECENT_NOTES_LIMIT)} now={now} />
+          )}
+        </section>
       </div>
     </Page>
   )
 }
 
-function RetryButton({ onClick }: { onClick: () => void }) {
+// The hero of Home: one big, obvious way to start a voice note.
+function RecordCard({ onRecord, notesToday }: { onRecord: () => void; notesToday: number }) {
   return (
-    <Button variant="secondary" onClick={onClick}>
-      <RotateCw aria-hidden />
-      Retry
-    </Button>
-  )
-}
-
-// Grey placeholders in the same layout, so the page doesn't jump when data arrives.
-function HomeSkeleton() {
-  return (
-    <div role="status" aria-label="Loading" className="grid grid-cols-1 gap-6 lg:grid-cols-3 lg:gap-x-8">
-      <Skeleton className="h-44 rounded-card lg:col-span-2" />
-      <div className="grid grid-cols-3 gap-3 lg:col-start-3 lg:row-span-2 lg:row-start-1 lg:grid-cols-1">
-        <Skeleton className="h-20 rounded-card" />
-        <Skeleton className="h-20 rounded-card" />
-        <Skeleton className="h-20 rounded-card" />
+    <Card className="flex flex-col items-center gap-4 p-6 text-center md:flex-row md:p-8 md:text-left">
+      <button
+        type="button"
+        onClick={onRecord}
+        aria-label="Record a note"
+        className="grid size-20 shrink-0 cursor-pointer place-items-center rounded-full bg-accent-strong text-on-accent shadow-raised transition-transform hover:brightness-105 active:scale-95"
+      >
+        <Mic aria-hidden className="size-9" />
+      </button>
+      <div className="min-w-0">
+        <h2 className="text-lg font-semibold tracking-tight">Record a note</h2>
+        <p className="mt-1 text-secondary">
+          Speak your thought - it's transcribed and titled for you.
+          {notesToday > 0 && ` ${notesToday} ${notesToday === 1 ? 'note' : 'notes'} today.`}
+        </p>
       </div>
-      <Skeleton className="h-72 rounded-card lg:col-span-2" />
-    </div>
+    </Card>
   )
 }

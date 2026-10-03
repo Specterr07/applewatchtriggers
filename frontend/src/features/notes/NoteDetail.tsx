@@ -1,19 +1,25 @@
-import { CloudOff, Copy, SearchX, Trash2 } from 'lucide-react'
+import { Check, CloudOff, Copy, Pencil, SearchX, Trash2, X } from 'lucide-react'
 import { useState } from 'react'
 import { toast } from 'sonner'
 
 import { Button } from '@/components/ui/Button'
 import { ConfirmDialog } from '@/components/ui/ConfirmDialog'
 import { EmptyState } from '@/components/ui/EmptyState'
+import { Input } from '@/components/ui/Input'
 import { Skeleton } from '@/components/ui/Skeleton'
 import { NotePlayer } from '@/features/notes/NoteAudio'
+import { getNoteTitle, hasRealTitle } from '@/features/notes/noteText'
 import { useDeleteNote } from '@/hooks/useDeleteNote'
 import { useNotes } from '@/hooks/useNotes'
 import { useNow } from '@/hooks/useNow'
+import { useRenameNote } from '@/hooks/useRenameNote'
+import type { Note } from '@/types/note'
+import { cn } from '@/utils/cn'
 import { notifyError } from '@/utils/notifyError'
 import { formatClockTime, formatDayHeading } from '@/utils/time'
 
-// One note: when it was recorded, its audio, its full transcript, and delete.
+// One note: its title (editable), when it was recorded, its audio, its
+// full transcript, and delete.
 // Read from the shared notes list (there's no single-note endpoint).
 export function NoteDetail({ noteId, onClose }: { noteId: number; onClose: () => void }) {
   const notesQuery = useNotes()
@@ -67,6 +73,7 @@ export function NoteDetail({ noteId, onClose }: { noteId: number; onClose: () =>
   return (
     <div className="flex flex-col gap-6 p-5">
       <section aria-label="Recording" className="flex flex-col gap-3">
+        <NoteTitle key={note.id} note={note} />
         <p className="text-secondary">
           {formatDayHeading(note.created_at.slice(0, 10), now)} · {formatClockTime(note.created_at)}
         </p>
@@ -102,6 +109,75 @@ export function NoteDetail({ noteId, onClose }: { noteId: number; onClose: () =>
         onConfirm={() => void confirmDelete()}
         isPending={deleteNote.isPending}
       />
+    </div>
+  )
+}
+
+// The note's title as a heading, with a pencil to rename it. Saving an
+// empty title clears it, so the first words of the transcript show instead.
+function NoteTitle({ note }: { note: Note }) {
+  const renameNote = useRenameNote()
+  const [isEditing, setIsEditing] = useState(false)
+  const [draft, setDraft] = useState('')
+
+  const startEditing = () => {
+    setDraft(note.title ?? '')
+    setIsEditing(true)
+  }
+
+  const save = async () => {
+    if (draft.trim() === (note.title ?? '').trim()) {
+      setIsEditing(false)
+      return
+    }
+    try {
+      await renameNote.mutateAsync({ noteId: note.id, title: draft })
+      setIsEditing(false)
+      toast.success(draft.trim() ? 'Title saved' : 'Title cleared')
+    } catch (err) {
+      // Nothing changed on the server - keep the edit box open with the draft.
+      notifyError(err)
+    }
+  }
+
+  if (isEditing) {
+    return (
+      <form
+        className="flex items-center gap-2"
+        onSubmit={(event) => {
+          event.preventDefault()
+          void save()
+        }}
+      >
+        <Input
+          autoFocus
+          aria-label="Note title"
+          value={draft}
+          maxLength={120}
+          placeholder={getNoteTitle({ title: null, transcript: note.transcript })}
+          onChange={(event) => setDraft(event.target.value)}
+          onKeyDown={(event) => event.key === 'Escape' && setIsEditing(false)}
+          disabled={renameNote.isPending}
+        />
+        <Button type="submit" size="icon" aria-label="Save title" disabled={renameNote.isPending}>
+          <Check aria-hidden />
+        </Button>
+        <Button variant="secondary" size="icon" aria-label="Cancel" onClick={() => setIsEditing(false)} disabled={renameNote.isPending}>
+          <X aria-hidden />
+        </Button>
+      </form>
+    )
+  }
+
+  return (
+    <div className="flex items-start gap-2">
+      {/* Greyed when it's only the transcript's first words, not a real title. */}
+      <h2 className={cn('min-w-0 flex-1 text-lg font-semibold tracking-tight break-words', !hasRealTitle(note) && 'text-secondary')}>
+        {getNoteTitle(note)}
+      </h2>
+      <Button variant="ghost" size="icon" aria-label="Rename note" onClick={startEditing}>
+        <Pencil aria-hidden />
+      </Button>
     </div>
   )
 }

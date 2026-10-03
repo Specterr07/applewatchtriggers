@@ -26,3 +26,7 @@ web_dist/
 
 # Env files (if you ever add a local .env)
 .env
+
+# Scratch files Claude saves locally (e.g. rendered diagram PNGs) - the
+# diagram sources live in docs/features/, so these are disposable.
+Claude outputs/

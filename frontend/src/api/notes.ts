@@ -1,18 +1,26 @@
 // Voice note endpoints (routes/notes.py):
 //   GET    /api/notes       -> { ok, notes: Note[] }   newest first
 //   POST   /api/notes       -> 201 { ok, note }        multipart field "audio"
+//   PATCH  /api/notes/<id>  -> { ok, note }            body { title }
 //   DELETE /api/notes/<id>  -> { ok }                  404 if already gone
 // There is no single-note or processing-status endpoint: POST uploads,
-// transcribes (Groq), compresses (ffmpeg) and stores (Tigris) in one request.
+// transcribes (Groq), titles it (Groq LLM), compresses (ffmpeg) and stores
+// (Tigris) in one request.
 
 import { ApiError, apiFetch, interpretResponse, NETWORK_ERROR_MESSAGE } from '@/api/client'
-import type { CreateNoteResponse, ListNotesResponse, Note } from '@/types/note'
+import type { CreateNoteResponse, ListNotesResponse, Note, UpdateNoteResponse } from '@/types/note'
 import { getStoredApiKey } from '@/utils/session'
 
 // Every note, newest first, each with a fresh playback link.
 export async function listNotes(): Promise<Note[]> {
   const data = await apiFetch<ListNotesResponse>('/api/notes')
   return data.notes
+}
+
+// Renames a note. An empty title clears it (the list then shows the first words).
+export async function renameNote(noteId: number, title: string): Promise<Note> {
+  const data = await apiFetch<UpdateNoteResponse>(`/api/notes/${noteId}`, { method: 'PATCH', body: { title } })
+  return data.note
 }
 
 // Permanently deletes a note (its audio first, then its record).

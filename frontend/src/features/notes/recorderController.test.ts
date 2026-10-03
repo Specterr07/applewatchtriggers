@@ -4,7 +4,7 @@ import { ApiError } from '@/api/client'
 import { createRecorderController, recordingFilename, type RecorderDeps, type RecorderLike } from '@/features/notes/recorderController'
 import type { Note } from '@/types/note'
 
-const SAVED_NOTE: Note = { id: 7, transcript: 'Buy milk', audio_url: 'https://audio/7', created_at: '2026-09-30 09:00:00' }
+const SAVED_NOTE: Note = { id: 7, title: 'Buy milk', transcript: 'Buy milk', audio_url: 'https://audio/7', created_at: '2026-09-30 09:00:00' }
 
 // A fake MediaRecorder: stop() hands over one chunk, then fires onstop.
 function fakeRecorder(mimeType = 'audio/webm;codecs=opus', chunk: Blob = new Blob(['audio-bytes'])): RecorderLike {

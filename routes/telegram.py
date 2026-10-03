@@ -109,7 +109,9 @@ def telegram_webhook():
         # Telegram voice notes are Opus in an Ogg container. Groq expects .ogg or .opus
         note = save_voice_note(audio_bytes, "telegram_voice.ogg")
         transcript = note.get("transcript", "")
-        telegram.send_message(chat_id, f"Saved ✅\n\n{transcript}")
+        title = note.get("title")
+        heading = f"Saved ✅ {title}" if title else "Saved ✅"
+        telegram.send_message(chat_id, f"{heading}\n\n{transcript}")
     except Exception as e:
         import traceback
         traceback.print_exc()
