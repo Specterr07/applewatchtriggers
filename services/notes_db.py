@@ -1,7 +1,8 @@
 """
 Notes storage (SQLite)
 -----------------------
-Each voice note's metadata - its transcript, where its compressed audio
+Each voice note's metadata - its transcript, its short AI title (nullable,
+see services/titling.py), where its compressed audio
 lives in Tigris (audio_key), and when it was recorded - lives in one
 row here. The audio bytes themselves are never stored in this database,
 only in Tigris (services/object_storage.py); this table just points at
@@ -41,22 +42,29 @@ def ensure_notes_db():
                 id INTEGER PRIMARY KEY AUTOINCREMENT,
                 transcript TEXT NOT NULL,
                 audio_key TEXT NOT NULL,
-                created_at TEXT NOT NULL
+                created_at TEXT NOT NULL,
+                title TEXT
             )
         """)
+        # notes.db files made before titles existed (e.g. the one already on
+        # the Fly volume) don't have the title column. Add it in place - old
+        # notes just get NULL until scripts/backfill_note_titles.py fills them.
+        columns = [row["name"] for row in conn.execute("PRAGMA table_info(notes)")]
+        if "title" not in columns:
+            conn.execute("ALTER TABLE notes ADD COLUMN title TEXT")
         conn.commit()
         conn.close()
     except sqlite3.Error as e:
         raise RuntimeError(f"Could not set up notes database: {e}")
 
 
-def insert_note(transcript, audio_key, created_at):
-    """Saves a new note and returns its id."""
+def insert_note(transcript, audio_key, created_at, title=None):
+    """Saves a new note and returns its id. title may be None."""
     try:
         conn = get_db_connection()
         cursor = conn.execute(
-            "INSERT INTO notes (transcript, audio_key, created_at) VALUES (?, ?, ?)",
-            (transcript, audio_key, created_at),
+            "INSERT INTO notes (transcript, audio_key, created_at, title) VALUES (?, ?, ?, ?)",
+            (transcript, audio_key, created_at, title),
         )
         conn.commit()
         new_id = cursor.lastrowid
@@ -86,6 +94,32 @@ def fetch_note(note_id):
         return row
     except sqlite3.Error as e:
         raise RuntimeError(f"Could not read note: {e}")
+
+
+def update_note_title(note_id, title):
+    """Sets (or clears, with None) one note's title. Returns True if the note exists."""
+    try:
+        conn = get_db_connection()
+        cursor = conn.execute("UPDATE notes SET title = ? WHERE id = ?", (title, note_id))
+        conn.commit()
+        updated = cursor.rowcount > 0
+        conn.close()
+        return updated
+    except sqlite3.Error as e:
+        raise RuntimeError(f"Could not update note title: {e}")
+
+
+def fetch_untitled_notes():
+    """Notes that have no title yet, oldest first (used by the backfill script)."""
+    try:
+        conn = get_db_connection()
+        rows = conn.execute(
+            "SELECT * FROM notes WHERE title IS NULL OR TRIM(title) = '' ORDER BY id ASC"
+        ).fetchall()
+        conn.close()
+        return rows
+    except sqlite3.Error as e:
+        raise RuntimeError(f"Could not read notes database: {e}")
 
 
 def remove_note(note_id):

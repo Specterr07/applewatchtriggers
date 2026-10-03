@@ -255,7 +255,9 @@ paths:
     post:
       summary: Upload and save a voice note
       description: >
-        Transcribes the recording (Groq), re-encodes it to a small
+        Transcribes the recording (Groq Whisper), gives it a short AI
+        title (Groq llama-3.1-8b-instant - optional, null if it fails),
+        re-encodes it to a small
         mono file (ffmpeg), and stores the compressed audio in Tigris -
         the original high-quality upload is never kept. All of this
         happens in one request, so it can take a few seconds.
@@ -290,6 +292,40 @@ paths:
           description: Transcription, compression, or storage failed (see message)
 
   /api/notes/{note_id}:
+    patch:
+      summary: Rename a note
+      description: Sets the note's title. An empty string or null clears it (the app then shows the transcript's first words).
+      tags: [Notes]
+      parameters:
+        - name: note_id
+          in: path
+          required: true
+          schema: { type: integer }
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [title]
+              properties:
+                title: { type: string, nullable: true, maxLength: 120, example: "Call the vet about Bruno" }
+      responses:
+        "200":
+          description: Updated note
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  ok: { type: boolean }
+                  note: { $ref: "#/components/schemas/Note" }
+        "400":
+          description: Missing or invalid title
+        "404":
+          description: No note with that id
+        "401":
+          $ref: "#/components/responses/Unauthorized"
     delete:
       summary: Delete a note
       description: Removes both its notes.db row and its audio object in Tigris.
@@ -375,6 +411,11 @@ components:
       type: object
       properties:
         id: { type: integer, example: 7 }
+        title:
+          type: string
+          nullable: true
+          example: "Call the vet about appointment"
+          description: Short AI-generated (or hand-edited) title. null if none was made - show the transcript's first words instead.
         transcript: { type: string, example: "Remember to call the vet about the appointment." }
         audio_url:
           type: string

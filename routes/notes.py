@@ -1,5 +1,5 @@
 """
-Voice notes routes - POST/GET /api/notes, DELETE /api/notes/<id>.
+Voice notes routes - POST/GET /api/notes, PATCH/DELETE /api/notes/<id>.
 
 POST does a lot in one request - upload, transcribe (Groq), compress
 (ffmpeg), and store (Tigris) - in that specific order, so a failure
@@ -19,6 +19,7 @@ notes_bp = Blueprint("notes", __name__)
 def _note_to_dict(row, audio_url):
     return {
         "id": row["id"],
+        "title": row["title"],
         "transcript": row["transcript"],
         "audio_url": audio_url,
         "created_at": row["created_at"],
@@ -69,6 +70,45 @@ def list_notes():
         notes.append(_note_to_dict(row, audio_url))
 
     return jsonify({"ok": True, "notes": notes}), 200
+
+
+# Longest title a person can type in by hand.
+MAX_TITLE_LENGTH = 120
+
+
+@notes_bp.route("/api/notes/<int:note_id>", methods=["PATCH"])
+@require_key
+def update_note(note_id):
+    """
+    Renames a note: body {"title": "..."}. An empty title clears it, so the
+    UI goes back to showing the first words of the transcript.
+    """
+    body = request.get_json(silent=True)
+    if not isinstance(body, dict) or "title" not in body:
+        return jsonify({"ok": False, "message": "Send JSON like {\"title\": \"...\"}"}), 400
+
+    title = body["title"]
+    if title is not None and not isinstance(title, str):
+        return jsonify({"ok": False, "message": "title must be text"}), 400
+
+    title = (title or "").strip() or None
+    if title is not None and len(title) > MAX_TITLE_LENGTH:
+        return jsonify({"ok": False, "message": f"Title must be {MAX_TITLE_LENGTH} characters or fewer"}), 400
+
+    try:
+        notes_db.ensure_notes_db()
+        if not notes_db.update_note_title(note_id, title):
+            return jsonify({"ok": False, "message": "No note with that id"}), 404
+        row = notes_db.fetch_note(note_id)
+    except RuntimeError as e:
+        return jsonify({"ok": False, "message": str(e)}), 500
+
+    try:
+        audio_url = object_storage.presigned_audio_url(row["audio_key"])
+    except RuntimeError:
+        audio_url = None
+
+    return jsonify({"ok": True, "note": _note_to_dict(row, audio_url)}), 200
 
 
 @notes_bp.route("/api/notes/<int:note_id>", methods=["DELETE"])
