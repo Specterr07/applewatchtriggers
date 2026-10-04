@@ -10,8 +10,8 @@ question, not an assumption.
 
 1. **Real accounts** - email/password, not this app's current
    shared-secret `API_KEY` model.
-2. **Per-user data isolation across every database.** Today's three
-   SQLite files (`tasks.db`, `canvas.db`, `notes.db`) - and anything
+2. **Per-user data isolation across every database.** Today's four
+   SQLite files (`tasks.db`, `canvas.db`, `notes.db`, `channels.db`) - and anything
    added before this pivot happens - all need to stop being "one
    dataset, shared secret" and become "one dataset per account."
 3. **Per-user usage/cost metrics.** Some accounting of usage/cost per
@@ -20,7 +20,9 @@ question, not an assumption.
    matters once more than one person is using it).
 4. **Apple Push dropped entirely.** Reminders (see
    `PLAN_LLM_REMINDERS.md`) go out via **Telegram + Web Push** instead,
-   in-app, not through Apple's push service.
+   in-app, not through Apple's push service. (For the single-user
+   reminders build, Telegram is the only channel; Web Push is a
+   multi-user-era addition. WhatsApp has been dropped entirely.)
 5. **Sequencing:** this is explicitly the LAST thing built, after
    everything else currently planned. Single-user (Vivek-only) is the
    working assumption for all other in-progress and planned work.
@@ -53,13 +55,15 @@ decided yet:
 - **Migration of existing data.** How today's single-user data (your
   own tasks/canvas/notes) becomes "user #1" when this ships - a manual
   one-time migration, a seed script, or something else.
-- **Telegram integration specifics.** Bot setup, how a user links their
-  Telegram account to their Sheev account, what triggers a message
-  being sent.
+- **Telegram for many users.** The bot itself is built and live
+  (`docs/features/messaging-channel.md`): deep-link pairing with one-time
+  codes, `channels.db`, `send_to_user()`. But every link is hard-wired to
+  `user_id = 1`. Open: how a signed-in user's account maps to their own
+  link, and how the webhook routes incoming notes to the right user.
 - **Web Push specifics.** Service worker, VAPID keys, the browser
   permission flow, and how it coexists with Telegram as a second
   delivery channel for the same reminders.
-- **Relationship to `PLAN_LLM_REMINDERS.md`.** Reminders are the
-  concrete feature that needs Telegram + Web Push delivery, but that
-  plan doesn't exist yet either (see that file) - so "how a reminder
-  gets triggered" is unanswered on both sides of this dependency.
+- **Relationship to `PLAN_LLM_REMINDERS.md`.** Reminders will most
+  likely ship single-user first (Telegram only), so this pivot would
+  have to make existing reminders per-user too. How a reminder gets
+  triggered is still unanswered in that plan.

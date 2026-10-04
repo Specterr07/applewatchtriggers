@@ -1,5 +1,8 @@
 # Future Architecture: After the Multi-User Pivot
 
+*Last reviewed 2026-10-04: Telegram and `channels.db` now exist (single-user),
+and the browser is one React app - updated below.*
+
 **This is speculative, not a build plan.** It shows what the current
 architecture (`ARCHITECTURE.md`) becomes if every decision already made
 in `docs/plans/PLAN_MULTI_USER.md` is applied - color-coded so it's obvious what's
@@ -13,20 +16,19 @@ gaps are visible now, not because it's happening next.
 ```mermaid
 flowchart TB
     Watch["📱 Apple Watch Shortcut<br/>GET /toggle?key=... (unchanged)"]
-    Browser["🌐 Browser — webpage<br/>now behind account login"]
-    CanvasApp["🌐 Browser — /canvas app"]
+    Browser["🌐 Browser — React app (all screens incl. canvas)<br/>now behind account login"]
 
     subgraph AuthNew["🟢 NEW: Accounts"]
         AuthLayer["🟡 Auth layer — email + password<br/>session vs. token, library,<br/>password hashing scheme: TBD"]
     end
 
     Browser --> AuthLayer
-    CanvasApp --> AuthLayer
 
     subgraph FlaskApp["Flask app — same blueprints, now auth-gated per account"]
         TasksRoute["routes/tasks.py"]
         CanvasRoute["routes/canvas.py"]
         NotesRoute["routes/notes.py"]
+        TelegramRoute["routes/telegram.py<br/>🟡 webhook must route each chat<br/>to the right user"]
         RemindersRoute["🟡 routes/reminders.py ?<br/>shape entirely undecided -<br/>see docs/plans/PLAN_LLM_REMINDERS.md"]
     end
 
@@ -34,6 +36,7 @@ flowchart TB
     AuthLayer --> TasksRoute
     AuthLayer --> CanvasRoute
     AuthLayer --> NotesRoute
+    AuthLayer --> TelegramRoute
     AuthLayer --> RemindersRoute
 
     subgraph Storage["Storage — per-user isolation added everywhere"]
@@ -42,25 +45,28 @@ flowchart TB
         TasksDB[("tasks<br/>🟢 + user_id (NEW column)")]
         CanvasDB[("canvas<br/>🟢 + user_id (NEW)<br/>🟡 one row per user? exact<br/>shape TBD")]
         NotesDB[("notes<br/>🟢 + user_id (NEW column)")]
+        ChannelsDB[("channels<br/>exists today, hard-wired to user_id = 1<br/>🟡 real per-user links: TBD")]
         UsageDB[("🟢 usage/cost metrics (NEW)<br/>per user - 🟡 WHAT it tracks<br/>(requests? $ cost? bytes?): TBD")]
     end
 
     TasksRoute --> TasksDB
     CanvasRoute --> CanvasDB
     NotesRoute --> NotesDB
+    TelegramRoute --> ChannelsDB
     AuthLayer --> UsersDB
     FlaskApp -.->|"🟢 records usage per request<br/>(what exactly: TBD)"| UsageDB
 
     subgraph External["External services"]
         Tigris[("Tigris<br/>🟡 key structure gains a per-user<br/>prefix, e.g. notes/&lt;user_id&gt;/&lt;uuid&gt;.mp3<br/>- exact structure TBD")]
         Groq["Groq API (unchanged)"]
-        TelegramSvc["🟢 Telegram (NEW delivery channel)<br/>🟡 account-linking flow: TBD"]
+        TelegramSvc["Telegram (exists today, single-user)<br/>🟡 per-account linking: TBD"]
         WebPushSvc["🟢 Web Push (NEW delivery channel)<br/>🟡 VAPID/service-worker setup: TBD"]
         ApplePushSvc["⬛ Apple Push — dropped entirely"]
     end
 
     NotesRoute --> Tigris
     NotesRoute --> Groq
+    TelegramRoute --> TelegramSvc
     RemindersRoute -.->|"🟡 trigger mechanism TBD"| TelegramSvc
     RemindersRoute -.->|"🟡 trigger mechanism TBD"| WebPushSvc
 
@@ -73,8 +79,8 @@ flowchart TB
 
     class AuthNew,AuthLayer green
     class UsersDB,TasksDB,CanvasDB,NotesDB,UsageDB green
-    class TelegramSvc,WebPushSvc green
-    class EngineChoice,RemindersRoute,Migration yellow
+    class WebPushSvc green
+    class EngineChoice,RemindersRoute,Migration,TelegramRoute,ChannelsDB,TelegramSvc yellow
     class ApplePushSvc grey
 ```
 
@@ -83,13 +89,14 @@ flowchart TB
 **Decided (🟢):**
 - A new `users` table/store and an auth layer gate every route that's
   currently protected by the single shared `API_KEY`.
-- `tasks`, `canvas`, and `notes` all gain per-user isolation - shown
+- `tasks`, `canvas`, `notes` and `channels` all gain per-user isolation - shown
   here as a `user_id` column, the natural shape of "per-user isolation
   across every database," though the exact column name/shape is itself
   one of the yellow items below.
 - A new usage/cost-metrics store, per user.
-- Telegram and Web Push become real delivery channels; Apple Push is
-  removed from the picture entirely, not just deprioritized.
+- Web Push becomes a second delivery channel next to Telegram (which
+  already exists, single-user). Apple Push is removed from the picture
+  entirely, not just deprioritized. WhatsApp is dropped too.
 
 **Genuinely undecided (🟡) - not guessed at here:**
 - Whether SQLite-per-feature survives real concurrent multi-user
@@ -107,7 +114,8 @@ flowchart TB
   `routes/reminders.py` (if that's even its name) looks like - this
   entire box is a placeholder for a feature with no spec yet
   (`docs/plans/PLAN_LLM_REMINDERS.md`).
-- Telegram account-linking and Web Push's browser-permission/VAPID setup.
+- How Telegram links move from "always user 1" to per-account, and Web
+  Push's browser-permission/VAPID setup.
 
 **Removed (⬛):**
 - Apple Push, entirely - not replaced with anything Apple-specific, per

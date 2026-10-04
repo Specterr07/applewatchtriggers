@@ -1,8 +1,8 @@
 # Notes first + AI titles
 
-**Status:** 3. Build  <!-- 1. Think → 2. Draw → 🔒 Locked → 3. Build → ✅ Shipped -->
+**Status:** ✅ Shipped (2026-10-04)  <!-- 1. Think → 2. Draw → 🔒 Locked → 3. Build → ✅ Shipped -->
 
-Branch: `feature/notes-first-ai-titles`
+Merged in PR #5 (`feature/notes-first-ai-titles`) and PR #6 (`fix/title-error-visibility` - the model switch below). Deployed to Fly and the backfill has been run.
 
 ---
 
@@ -133,7 +133,7 @@ flowchart LR
 **Wrap-up**
 - [x] `PROJECT_STRUCTURE.md` (new service, new script, new endpoint, new column)
 - [x] Run pytest + vitest + `npm run build`; check Home on phone width
-- [ ] Deploy to Fly, record a note, confirm the title appears
+- [x] Deploy to Fly, record a note, confirm the title appears; run the backfill on Fly *(2026-10-04)*
 
 **What actually got built / what I learned:**
 - Built as planned. Two small additions found while building:

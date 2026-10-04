@@ -2,8 +2,9 @@
 
 This reflects what's actually in the repo right now: `Dockerfile`, `app.py`,
 `routes/`, `services/`, `frontend/`, `fly.toml`, `.github/workflows/`. No
-aspirational or planned pieces are included here - see `FUTURE_*` docs (once
-they exist) for what's coming.
+aspirational or planned pieces are included here - see
+`FUTURE_ARCHITECTURE.md` for the (deferred) multi-user picture and `TODO.md`
+for what's coming. Last checked against the code: 2026-10-04.
 
 ```mermaid
 flowchart TB
@@ -21,7 +22,7 @@ flowchart TB
     subgraph Docker["Dockerfile — multi-stage build"]
         direction TB
         Stage1["Stage 1: node:20-slim<br/>npm ci && npm run build<br/>frontend/ → frontend/dist"]
-        Stage2["Stage 2: python:3.12-slim<br/>apt-get install ffmpeg<br/>pip install -r requirements.txt<br/>COPY app.py routes/ services/ static/<br/>COPY --from=Stage1 dist → web_dist/"]
+        Stage2["Stage 2: python:3.12-slim<br/>apt-get install ffmpeg<br/>pip install -r requirements.txt<br/>COPY app.py routes/ services/ static/ scripts/<br/>COPY --from=Stage1 dist → web_dist/"]
         Stage1 -->|"only compiled JS/CSS crosses over"| Stage2
     end
 
@@ -40,11 +41,12 @@ flowchart TB
         PagesRoute["routes/pages.py<br/>/, /tasks, /notes, /canvas, …  →  web_dist/index.html<br/>/app/assets/*  →  web_dist/assets<br/>/app, /app/*  →  301 without /app"]
         TasksRoute["routes/tasks.py<br/>/toggle /status<br/>/api/logs, /api/logs/{id}"]
         CanvasRoute["routes/canvas.py<br/>GET/PUT /api/canvas"]
-        NotesRoute["routes/notes.py<br/>POST/GET /api/notes<br/>DELETE /api/notes/{id}"]
+        NotesRoute["routes/notes.py<br/>POST/GET /api/notes<br/>PATCH/DELETE /api/notes/{id}"]
         TelegramRoute["routes/telegram.py<br/>POST /telegram/webhook<br/>POST /api/channels/telegram/link<br/>POST /api/channels/test"]
         ChannelsSvc["services/channels.py<br/>send_to_user"]
         TelegramSvc["services/telegram.py<br/>send_message · download_voice"]
         PipelineSvc["services/note_pipeline.py<br/>save_voice_note"]
+        TitlingSvc["services/titling.py<br/>generate_title (never raises)"]
     end
 
     Machine --> FlaskApp
@@ -68,12 +70,13 @@ flowchart TB
     TelegramRoute --> TelegramSvc
     TelegramRoute --> PipelineSvc
     NotesRoute --> PipelineSvc
+    PipelineSvc --> TitlingSvc
     ChannelsSvc --> TelegramSvc
 
     subgraph Storage["SQLite — one file per feature, all on /data"]
         TasksDB[("tasks.db<br/>tasks(id, name, start, end,<br/>duration_minutes)")]
         CanvasDB[("canvas.db<br/>canvas(id=1 only, snapshot JSON,<br/>updated_at)")]
-        NotesDB[("notes.db<br/>notes(id, transcript,<br/>audio_key, created_at)")]
+        NotesDB[("notes.db<br/>notes(id, transcript, title,<br/>audio_key, created_at)")]
         ChannelsDB[("channels.db<br/>links, link_codes, seen_updates")]
     end
 
@@ -87,12 +90,13 @@ flowchart TB
 
     subgraph External["External services"]
         Tigris[("🪣 Tigris object storage<br/>bucket = BUCKET_NAME<br/>key: notes/&lt;uuid&gt;.mp3")]
-        Groq["🎙️ Groq API<br/>whisper-large-v3-turbo"]
+        Groq["🎙️ Groq API<br/>whisper-large-v3-turbo (transcripts)<br/>openai/gpt-oss-20b (titles)"]
     end
 
     PipelineSvc -->|"boto3: put_object,<br/>generate_presigned_url"| Tigris
     NotesRoute -->|"boto3: delete_object,<br/>generate_presigned_url"| Tigris
     PipelineSvc -->|"transcribe original<br/>upload before compressing"| Groq
+    TitlingSvc -->|"short title from<br/>first 1500 chars"| Groq
 
     N1["Why per-feature SQLite files,<br/>not one shared DB: each feature's<br/>storage stays independently simple<br/>and swappable - tasks moved off CSV<br/>only because it needed stable ids;<br/>canvas/notes just followed that<br/>same established pattern"]:::note
     N2["Why multi-stage Docker build:<br/>Node/npm/source .tsx files never<br/>reach the deployed image - only<br/>the compiled app JS/CSS does"]:::note
@@ -165,7 +169,8 @@ request → call a service → shape the JSON response," nothing else.
   one task) for the webpage's bento-card grid and detail view.
 - **`routes/canvas.py`** - `GET`/`PUT /api/canvas`, so the tldraw canvas
   persists server-side instead of being stuck in one browser's local storage.
-- **`routes/notes.py`** - the voice-notes API (`GET/POST /api/notes`, `DELETE /api/notes/{id}`).
+- **`routes/notes.py`** - the voice-notes API (`GET/POST /api/notes`,
+  `PATCH /api/notes/{id}` to rename a note's title, `DELETE /api/notes/{id}`).
 - **`routes/telegram.py`** - Telegram bot webhook handler (`POST /telegram/webhook`),
   pairing code generation (`POST /api/channels/telegram/link`), and test outbound
   message trigger (`POST /api/channels/test`).
@@ -197,9 +202,10 @@ Nothing shares a database, so any one feature's storage could be swapped out
   holding the tldraw canvas's entire snapshot as a JSON blob plus
   `updated_at`. There's only ever one canvas, so this is deliberately not a
   "table of canvases."
-- **`notes.db`** - one row per voice note: `id, transcript, audio_key,
-  created_at`. Notice there's no audio data and no URL here - just a
-  reference (`audio_key`) to where the real audio lives.
+- **`notes.db`** - one row per voice note: `id, transcript, title,
+  audio_key, created_at`. `title` is nullable (added in place to older
+  databases by `ensure_notes_db()`). Notice there's no audio data and no
+  URL here - just a reference (`audio_key`) to where the real audio lives.
 - **`channels.db`** - channel connection links (`links`), single-use pairing codes
   (`link_codes`), and idempotent webhook IDs (`seen_updates`).
 
@@ -216,8 +222,12 @@ link quietly going stale later.
 
 The pipeline for `POST /api/notes`, in order: read the uploaded recording →
 send the **original, uncompressed** audio to Groq for transcription (best
-quality for accuracy) → re-encode it via `ffmpeg` to mono/32kbps → upload
-*only* the compressed version to Tigris → save the note row. The original
+quality for accuracy) → ask Groq's `openai/gpt-oss-20b` for a 3-7 word
+title (`services/titling.py`; on any failure it logs a `[titling]` line and
+returns `None`, so a title never blocks the save) → re-encode the audio via
+`ffmpeg` to mono/32kbps → upload *only* the compressed version to Tigris →
+save the note row. Telegram voice notes go through exactly the same
+`save_voice_note()`. The original
 high-quality upload is never written anywhere permanent; it exists only in
 memory for the duration of the request.
 
@@ -232,12 +242,13 @@ memory for the duration of the request.
   then cut over (`docs/features/frontend-redesign.md`). It has: the
   app shell (sidebar / bottom nav, Light/Dark/System theme), the sign-in
   gate (same localStorage keys and 24h expiry as the old page, so existing
-  sign-ins survived the cutover), **Home** (running task with a live timer,
-  today's stats, recent activity, Start/Stop), **Tasks** (search/filter,
+  sign-ins survived the cutover), **Home** (notes-first: a big Record
+  card, recent notes grouped by day, and a slim running-task strip with
+  Start/Stop), **Tasks** (search/filter,
   detail with edit, reopen, delete) and **Time Log** (by day, with
   totals) - all reading the same cached `/api/logs` list, so they can't
-  disagree - **Notes** (record from Capture, search loaded transcripts,
-  play, delete; the recorder keeps a failed recording for Retry and the
+  disagree - **Notes** (record from Home or Capture, AI titles you can
+  edit, search over titles and transcripts, play, delete; the recorder keeps a failed recording for Retry and the
   player refreshes an expired playback link once), the Capture menu,
   **Apple Watch** (API reachability and next press from `/status`, the
   Shortcut URL, recent start/stop events), **Telegram** (connect link or

@@ -1,73 +1,104 @@
-# Claude Code handoff — frontend redesign
+# Agent handoff - start here
 
-**Status (2026-09-30):** Phases 2–6 of the frontend redesign are built. Phase 6
-(Apple Watch, Telegram, Settings, keyboard shortcuts) is **awaiting the user's
-review** — do not start Phase 7 without explicit approval.
+**Last updated:** 2026-10-04 (after PR #6; titles deployed and backfilled).
 
-> **Next session: inspect the repository first.** Don't rely on earlier chat
-> context. Read, in order: this file → `docs/features/frontend-redesign.md`
-> (the locked spec, source of truth) → `PROJECT_STRUCTURE.md` →
-> `ARCHITECTURE.md` → `CLAUDE.md` / `docs/PROCESS.md` → the code in
-> `frontend/src/`.
+This is the first file an AI agent (Claude, Antigravity/Gemini, anything
+else) should read when it starts working on this repo. It tells you where
+things stand and where to look. **Don't rely on earlier chat context -
+the repo is the source of truth.** If something here disagrees with the
+code, the code wins: fix this file.
 
-## Phases
-| Phase | Scope | State |
+---
+
+## 1. What Sheev is, in 30 seconds
+
+A personal tool Vivek uses every day, built incrementally
+(experiment → learn → add → remove → repeat). Flask API + React app,
+deployed to Fly.io (`applewatchtriggers.fly.dev`) from GitHub Actions on
+every push to `main`.
+
+- **Main job - voice notes.** Record in the web app or send a voice note
+  to the Telegram bot → Groq Whisper transcribes it → Groq
+  `openai/gpt-oss-20b` gives it a short title → ffmpeg compresses the
+  audio → audio in Tigris, transcript + title in `notes.db`. Home is
+  notes-first.
+- **Second job - time tracking.** An Apple Watch Shortcut (one tap,
+  `GET /toggle`) or the web app starts/stops a task (`tasks.db`).
+- **Side tool - canvas.** A tldraw canvas saved server-side.
+- **Single user.** One shared `API_KEY`; multi-user is deferred.
+
+## 2. Reading order
+
+1. **This file.**
+2. **`TODO.md`** - the roadmap & backlog: shipped, now, next, bugs, later,
+   deferred, dropped. Pick work from here.
+3. **`CLAUDE.md`** - standing rules (feature process, keep docs in sync).
+4. **`PROJECT_STRUCTURE.md`** - what every file/folder/route is for.
+5. **`ARCHITECTURE.md`** - how the deployed pieces fit together.
+6. The feature file for whatever you're working on, in `docs/features/`
+   (newer, follows `docs/PROCESS.md`) or `docs/plans/` (older records).
+
+## 3. Where things stand
+
+| Area | State | File |
 |---|---|---|
-| M0 | pytest contract/routing tests (`tests/`) + CI gate in `deploy.yml` | Done — green on the PR run (Specterr07/applewatchtriggers#1) |
-| 2 | App shell, design system, auth gate, routing, lazy canvas | Done |
-| 3 | Home / Overview, Capture, guarded Start/Stop | Done |
-| 4 | Tasks + Time Log, task detail/edit/reopen/delete | Done |
-| 5 | Notes + voice recording, playback, delete | Done |
-| 6 | Apple Watch screen, Telegram screen, full Settings, keyboard shortcuts (§6.2) | Built — awaiting review |
-| 6.5 | Home + Tasks phone layouts: no sideways scroll at 320–430px (explicit single-column grids, task cards wrap instead of truncating, header actions wrap) | Built — awaiting review |
-| 7 | Canvas visual review | Not started |
-| 8–10 | Real-time UX, polish (shortcuts, perf/a11y audit), demo | Not started |
-| M5 | Cutover: React app to `/`, delete `static/index.html` | Not started |
+| Voice notes, Telegram, tasks, canvas | ✅ Shipped, in daily use | `docs/plans/*`, `docs/features/messaging-channel.md` |
+| Notes-first Home + AI titles | ✅ Shipped 2026-10-04, backfill done | `docs/features/notes-first-ai-titles.md` |
+| Frontend redesign | Built, merged and live at `/`; **formal sign-off not done** (parity walk-through, canvas review, perf/a11y checks, delete `static/index.html`) | `docs/features/frontend-redesign.md` (Status block at top) |
+| Wrap-up for portfolio | Not started: 401 bug fix, security review, README, MIT license, Loom video | `TODO.md` §1 |
+| Reminders (LLM tool-calling) | **Not specced.** No code until its feature file is 🔒 Locked | `docs/plans/PLAN_LLM_REMINDERS.md` |
+| Multi-user pivot | Deferred on purpose - built last | `docs/plans/PLAN_MULTI_USER.md`, `FUTURE_ARCHITECTURE.md` |
 
-Each phase ends with a STOP for the user's review (spec §10, "Review checkpoints").
+## 4. Rules that matter most
 
-## Current architecture
-- Flask (unchanged API) serves the old page at `/` and the React app at
-  `/app/*` (`routes/pages.py`, explicit route list; JSON 404 elsewhere).
-  `/canvas` → 302 `/app/canvas`.
-- React 19 + TS + Vite + Tailwind v4 in `frontend/`; build copied to
-  `web_dist/` by the Dockerfile. `ROUTER_BASENAME = '/app'` in `src/config.ts`.
-- All network access in `src/api/`; server state via React Query
-  (`['tasks']`, `['notes']`); cache cleared on sign-out.
-- Home, Tasks, Time Log share one task cache; minutes computed once
-  (`src/utils/tasks.ts`). Timestamps are timezone-less server strings —
-  parse only via `src/utils/time.ts`, never `new Date(string)`.
-- Recorder: `features/notes/recorderController.ts` (state machine) wrapped
-  by `RecorderProvider` inside `AppShell`.
+- **No code for a new feature until its file says 🔒 Locked**
+  (`docs/PROCESS.md`). Bug fixes, small tweaks and docs don't need this.
+- **Keep the docs in sync in the same change:** `PROJECT_STRUCTURE.md`
+  for any file/route/service/database change; `TODO.md` when an item is
+  done, added or dropped; this file's §3 table when an area changes state.
+- **Frozen contracts - never change these:**
+  - `GET /toggle[?name=]` → `{ok, action, id, message}` and
+    `GET /status` → `{ok, next_action}`, with `?key=` or `X-API-Key`.
+    The Watch Shortcut depends on them and can't be updated with a deploy.
+    Pinned by `tests/test_watch_contract.py`.
+  - localStorage keys `task_logger_api_key` and
+    `task_logger_session_last_active` (24h sliding expiry).
+  - Unknown URLs (incl. unknown `/api/*`) return the JSON 404; only the
+    explicit page list in `routes/pages.py` returns HTML.
+- **Timestamps** are timezone-less `YYYY-MM-DD HH:MM:SS` strings in
+  `Asia/Kolkata`. In the frontend, parse only via `src/utils/time.ts`,
+  never `new Date(string)`. `SERVER_TIMEZONE` (frontend) must match
+  `TIMEZONE` in `fly.toml`.
+- **No `fetch` outside `frontend/src/api/`.**
+- **Titling never blocks a note save** - `generate_title()` returns `None`
+  on failure and logs it with a `[titling]` prefix.
+- **Keep it simple and explained.** Vivek doesn't want to build things he
+  doesn't understand: prefer plain solutions, explain the why, avoid new
+  dependencies unless they clearly earn their place.
 
-## API contracts that must not change
-- `GET /toggle[?name=]` → `{ok, action, id, message}` and `GET /status` →
-  `{ok, next_action}`; `?key=` query param or `X-API-Key` header. Used by the
-  Apple Watch Shortcut. Pinned by `tests/test_watch_contract.py`.
-- `/api/logs`, `/api/logs/<id>` (GET/PATCH/DELETE), `/api/notes` (GET/POST
-  multipart `audio`), `/api/notes/<id>` (DELETE), `/api/canvas` (GET/PUT),
-  `/api/channels/*` — see `static/openapi.yaml`.
-- localStorage keys `task_logger_api_key`, `task_logger_session_last_active`
-  (shared with the old page). New: `sheev_theme`, `sheev_telegram_last_test`.
+## 5. Running and checking things
 
-## Design decisions (see spec "Decisions")
-- Start/Stop always checks `/status` before `/toggle`; Stop never sends a name.
-- `--danger-strong` = filled destructive button; `--danger-text` = red
-  text/icons/borders. Light default, dark supported, WCAG AA tokens.
-- Tasks sorted by start time; task/note detail read from the shared cache.
-- Time Log defaults to 7 days; Home/Time Log refetch every 60s while visible.
-- **Notes desktop deviation:** note detail uses the task-style drawer on
-  tablet/desktop instead of spec §5.2's two-pane layout (user-approved).
-- Reopen shows a warning that it continues the original session.
+```
+.venv/bin/python -m flask --app app run --port 8080 --debug   # backend
+cd frontend && npm run dev                                     # frontend (proxies to :8080)
+.venv/bin/python -m pytest                                     # backend tests
+cd frontend && npm test && npm run build && npm run lint       # frontend checks
+```
 
-## Known issues / outstanding work
-- **Docker build not verified locally** (no daemon); Fly's remote builder built it successfully in the M0 deploy (run 36639850345).
-- Primary-button hover fades to ~4.2:1 contrast in light mode.
-- **No build version in Settings:** spec §5.3 asks for the build commit, but nothing in the build records one (the Docker context excludes `.git`). Needs a build arg — not done.
-- React Query `staleTime` 15s: user saw focus-driven refetches every ~18s; raising to 60s is an open question.
-- A 401 during a voice-note upload signs out and the recording is lost.
-- Groq/Tigris success paths were only verified with a scratch stub harness.
+CI (`.github/workflows/deploy.yml`) runs all of these on every PR and push
+to `main`; deploys only happen if they pass. Last recorded counts
+(2026-10-03): **pytest 47 passed, vitest 66 passed**, build + lint clean.
 
-## Validation at handoff
-pytest 27 passed · Vitest 63 passed · typecheck/lint clean · initial JS 178.2 KB gzipped (budget 250 KB) · Phase 6 browser checks 84/86 (2 environment-only).
-Run: `.venv/bin/python -m pytest` and `cd frontend && npm test && npm run build && npm run lint`.
+Useful production commands: `fly logs` (look for `[titling]`),
+`fly ssh console -C "python scripts/backfill_note_titles.py"` (safe to
+re-run).
+
+## 6. Working setup
+
+- Vivek works on a MacBook Air M1 (his only machine) with AI agents.
+  No local Docker - Fly's remote builder does the Docker build.
+- Branch per change, PR into `main`, merge → auto-deploy.
+- Secrets live in Fly (`fly secrets set`), never in git: `API_KEY`,
+  `GROQ_API_KEY`, `AWS_ACCESS_KEY_ID`, `AWS_SECRET_ACCESS_KEY`,
+  `AWS_ENDPOINT_URL_S3`, `BUCKET_NAME`, `TELEGRAM_BOT_TOKEN`,
+  `TELEGRAM_BOT_USERNAME`, `TELEGRAM_WEBHOOK_SECRET`.

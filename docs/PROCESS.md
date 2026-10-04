@@ -21,8 +21,11 @@ changed and why. I don't just silently change the code.
 
 ## Starting a feature
 
-Copy `features/_template.md` to `features/<feature-name>.md` and fill
-in step 1.
+Copy `docs/features/_template.md` to `docs/features/<feature-name>.md`
+and fill in step 1. When it ships, set its Status to ✅ Shipped and
+update `TODO.md` and `docs/claude-handoff.md` in the same change.
 
-(The older `docs/plans/PLAN_*.md` files in the repo root are features from before
-this process — same idea, less structure.)
+(The older `docs/plans/PLAN_*.md` files are features from before this
+process — same idea, less structure. A plan that hasn't been built yet,
+like `PLAN_LLM_REMINDERS.md`, moves into a new `docs/features/` file
+when work on it starts.)

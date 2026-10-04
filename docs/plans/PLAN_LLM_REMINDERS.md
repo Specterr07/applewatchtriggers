@@ -1,19 +1,29 @@
 # Plan: LLM Tool-Calling for Reminders
 
-**Status: Not started. Nothing about this feature has been decided
-yet** beyond its name and that it exists on the roadmap - it was named
-in passing (`applewatchtriggers` planning discussion) but never
-specced. Every item below is an open question, not an assumption -
-listed here so answering them in conversation can turn directly into
-the "Decided" section of this file.
+**Status: Not started, not specced.** It's the next new feature after
+the portfolio wrap-up (`TODO.md` §4). Only the few facts under "What's
+known" are decided; every item under "Open questions" is still open, not
+an assumption.
+
+**Next step:** when work starts, create `docs/features/reminders.md` from
+`docs/features/_template.md`, copy the known facts and open questions
+below into its Think section, and follow `docs/PROCESS.md`. No code until
+that file says 🔒 Locked. After that, this file is just a pointer.
 
 ## What's known
 
 - It's called "LLM tool-calling for reminders."
-- It's related to `PLAN_MULTI_USER.md`: reminders it produces are
-  meant to be delivered via Telegram + Web Push (Apple Push was
-  explicitly ruled out) - but that connection is the only concrete
-  fact tying the two plans together.
+- **There will be a Reminders tab on the webpage** where reminders are
+  listed and can be edited.
+- **Telegram is the only delivery channel** for this build (WhatsApp was
+  dropped entirely; Apple Push was ruled out earlier). The outbound pipe
+  already exists: `services/channels.py:send_to_user()`, built and tested
+  by the Telegram feature (`docs/features/messaging-channel.md`).
+- Web Push only appears in the multi-user plan (`PLAN_MULTI_USER.md`), as
+  a second channel for that future - it's not part of this build.
+- Groq is already the app's model provider (Whisper for transcripts,
+  `openai/gpt-oss-20b` for note titles, on the free tier). Whether
+  reminders use the same provider is still open (below).
 
 ## Open questions
 
@@ -34,16 +44,17 @@ the "Decided" section of this file.
   that's a guess, not a decision - schema, fields, and even whether
   it's SQLite or something else are all open.
 - **Delivery timing and reliability.** Is this real-time (near the
-  moment a reminder is "due") or best-effort/periodic? What retries or
-  delivery guarantees, if any, across the two channels (Telegram +
-  Web Push)?
+  moment a reminder is "due") or best-effort/periodic? What checks for
+  due reminders - a background thread, a scheduled job, an external
+  cron hitting an endpoint? (The Fly machine is always on and runs one
+  gunicorn worker.) What happens if a Telegram send fails?
+- **What the Reminders tab can do.** List, edit, delete, mark done,
+  snooze, create by hand? Which of those are needed for v1?
 - **Relationship to voice notes.** Given notes are already transcribed
   through an LLM-adjacent pipeline (Groq Whisper), whether reminders
   are meant to come *from* notes specifically, or are a separate
   standalone feature that happens to share infrastructure, is unclear.
-- **Single-user vs. multi-user timing.** `PLAN_MULTI_USER.md` is
-  explicitly deferred until after everything else - does that mean
-  reminders ship first, single-user (Vivek-only, no Telegram
-  account-linking needed yet), or does this feature wait for
-  multi-user because the delivery channels are inherently
-  per-account?
+- **Single-user vs. multi-user timing.** Most likely single-user first,
+  since the multi-user pivot is explicitly last and the Telegram link is
+  already single-user (`user_id = 1`) - but this hasn't been explicitly
+  confirmed.

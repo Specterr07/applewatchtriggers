@@ -1,6 +1,6 @@
 # Project Standards & Conventions
 
-This document outlines the naming conventions, file system structure, and coding standards used across the Apple Watch Triggers project. Consistency is key to keeping the codebase organized and maintainable.
+This document outlines the naming conventions, file system structure, and coding standards used across the Apple Watch Triggers project (the app itself is called **Sheev**). Consistency is key to keeping the codebase organized and maintainable.
 
 ## 1. Naming Conventions
 
@@ -30,10 +30,12 @@ Our root directory maintains a strict separation of concerns to avoid clutter:
 - `frontend/`: The React + TypeScript + Vite app (served at `/`; built assets at `/app/assets/*`). Built completely separately via Docker Stage 1. No backend dependencies. Folder layout and rules: `docs/features/frontend-redesign.md` §8.
 - `static/`: `openapi.yaml`, plus the old webpage file (`index.html`), no longer served at `/` and pending deletion.
 - `docs/`: All documentation, planning records, and architectural diagrams.
-  - `docs/plans/`: Historical `PLAN_*.md` decision records for implemented and deferred features.
-  - `docs/features/`: Work-in-progress or proposed feature definitions (following `PROCESS.md`).
+  - `docs/claude-handoff.md`: The entry point for any agent - current state, reading order, key rules.
+  - `docs/plans/`: Older `PLAN_*.md` decision records for shipped and not-yet-built features (from before `PROCESS.md`).
+  - `docs/features/`: One file per feature, following `PROCESS.md` (Think → Draw → 🔒 Locked → Build → ✅ Shipped). New features always start here.
+- Root status docs: `TODO.md` (roadmap & backlog), `ARCHITECTURE.md` (what's deployed), `FUTURE_ARCHITECTURE.md` (deferred multi-user picture), `PROJECT_STRUCTURE.md` (every path explained).
 
 ## 3. General Principles
 - **Keep route handlers lean:** `routes/*.py` should only handle request parsing, calling services, and returning JSON. All database/external logic belongs in `services/`.
 - **One frontend going forward:** New UI work goes in the React app (`frontend/`), not in `static/index.html`, which no longer serves `/` and is pending deletion. (This replaces the earlier "keep static/ and frontend/ separate" rule - see the Decisions in `docs/features/frontend-redesign.md`.)
-- **Update Documentation Synchronously:** Any structural changes to routes, DB schemas, or folders must include parallel updates to `PROJECT_STRUCTURE.md`.
+- **Update Documentation Synchronously:** Any structural changes to routes, DB schemas, or folders must include parallel updates to `PROJECT_STRUCTURE.md` (and `ARCHITECTURE.md` if the deployed picture changes). Finished, new or dropped work updates `TODO.md` in the same change.

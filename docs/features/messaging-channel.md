@@ -15,11 +15,11 @@ something I said on Monday).
   pipeline (transcribe → compress → store).
 - The server can send me a message any time.
 - Connect my Telegram once, by tapping a link. Never again.
-- Keep Telegram-specific code in one place, so WhatsApp could be
-  added later without touching the rest.
+- Keep Telegram-specific code in one place, so another channel could
+  be added later without touching the rest.
 
 **Not building:**
-- WhatsApp (maybe later).
+- WhatsApp - **dropped entirely** (see Decisions, 2026-10).
 - *When* reminders fire — that's the reminders feature
   (`docs/plans/PLAN_LLM_REMINDERS.md`). Here I just prove the pipe with a test message.
 - User accounts — that's the multi-user feature, which comes last.
@@ -186,6 +186,13 @@ once when registering the webhook).
 - **Telegram first, WhatsApp maybe later.** The whole point is sending
   reminders later, and WhatsApp makes that hard and paid. Revisit if
   real users ask for WhatsApp. *(2026-09-19)*
+- **WhatsApp dropped entirely.** Telegram is the only messaging channel,
+  including for the reminders feature. *(2026-10)*
+- **The Connect / Test buttons moved** from the old page's Notes tab to
+  the React app's Telegram screen (`/integrations/telegram`) in the
+  frontend redesign. Same API. *(2026-09-30)*
+- **The "Saved ✅" reply now shows the note's AI title**
+  (`docs/features/notes-first-ai-titles.md`). *(2026-10-03)*
 - **Strictly single-user prototype** (`user_id = 1`) — we are explicitly keeping this bot private to you for now. The multi-user model is out of scope for this prototype. *(Updated 2026-09-24)*
 - **Python in the Flask app** — one deploy, reuses the notes code. *(2026-09-19)*
 - **`channels.db`** — matches how every other feature stores data. *(2026-09-19)*
