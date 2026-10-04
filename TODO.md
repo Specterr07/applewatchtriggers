@@ -1,68 +1,128 @@
-# Future Work
+# Roadmap & backlog
 
-Consolidated from every `docs/plans/PLAN_*.md` in this repo. See each plan file for
-full detail - this is the organized index, grouped the way work actually
-gets acted on.
+**Last updated:** 2026-10-04. This is the single list of what's done, what's
+next, and what's deliberately not happening. If you're an agent starting a
+session, read `docs/claude-handoff.md` first - it tells you how to use this
+file.
 
-## Already shipped (context, not pending work)
+How items move: anything that's a **new feature** goes through
+`docs/PROCESS.md` (Think → Draw → 🔒 Locked → Build) and gets its own file
+in `docs/features/`. **Bug fixes, small tweaks and docs** don't need a
+feature file - they can be done straight from this list.
 
-- **Named Tasks + Bento Cards + Detail Page** - `docs/plans/PLAN_NAMED_TASKS_BENTO_CARDS.md`
-- **Server-side canvas persistence** - `docs/plans/PLAN_CANVAS_SAVE.md`
-- **Voice notes** (record → transcribe → compress → store) - `docs/plans/PLAN_VOICE_NOTES.md`
+---
 
-## Fully decided and ready to build
+## Where the project stands (one paragraph)
 
-**Nothing, right now.** Everything remaining on the roadmap either has
-open questions blocking it (LLM Reminders, below) or is explicitly on
-hold as a unit (the multi-user pivot, below) - there's currently no
-plan file describing a feature that's fully specced and just waiting
-to be coded.
+Sheev is live on Fly.io and used daily. Voice notes are its main job
+(record in the web app or send to the Telegram bot → Whisper transcript +
+AI title → stored); time tracking (Apple Watch one-tap + web) is the
+secondary job; the canvas is a side tool. The frontend redesign has
+replaced the old page, is served at `/`, and is signed off. What's left
+is **finishing work**: the portfolio wrap-up, deleting the old page, and
+a few known bugs. No new features are planned right now. The app is
+single-user (Vivek only) by design.
 
-## Open questions to answer
+---
 
-### LLM Tool-Calling for Reminders — `docs/plans/PLAN_LLM_REMINDERS.md`
-Nothing about this feature is decided beyond its name. Before it can
-move to "ready to build," these need answers:
-- What actually triggers a reminder (an LLM reading notes/tasks and
-  deciding something needs follow-up? An explicit user request? A
-  scheduled check)?
-- What "tool-calling" means here concretely - which LLM/provider, what
-  tools it calls, what initiates the call.
-- Where reminders get stored (schema, and whether it follows the
-  per-feature-SQLite pattern or something else).
-- Delivery timing/reliability across Telegram + Web Push.
-- Whether it's related to voice notes specifically, or a separate
-  standalone feature.
-- Whether it ships single-user (before the multi-user pivot) or waits
-  for it, since Telegram/Web Push delivery is inherently per-account.
+## ✅ Shipped
 
-### Multi-user pivot's remaining technical gaps — `docs/plans/PLAN_MULTI_USER.md`
-These don't block anything **today** (the pivot itself is deferred -
-see below), but they're the open questions that will need answers
-before it can move from "decided in outline" to "ready to build":
-- Auth mechanics (session vs. token, library, password hashing,
-  signup: open or invite-only).
-- **Whether SQLite survives the concurrency shift**, or this pivot is
-  also when storage moves to something like Postgres - a large fork in
-  what the future architecture even looks like, not a minor detail.
-- Exact per-user isolation mechanism (`user_id` columns, whether
-  `canvas` moves from "exactly one row" to "one row per user," Tigris
-  key structure).
-- What "usage/cost metrics" tracks, precisely, and who can see it.
-- How today's single-user data becomes "user #1" on migration.
-- Telegram account-linking and Web Push (VAPID, service worker,
-  permission flow) implementation specifics.
+| Feature | Record | Shipped |
+|---|---|---|
+| Named tasks + bento cards + task detail | `docs/plans/PLAN_NAMED_TASKS_BENTO_CARDS.md` | before 2026-09 |
+| Server-side canvas persistence | `docs/plans/PLAN_CANVAS_SAVE.md` | before 2026-09 |
+| Voice notes (record → transcribe → compress → store) | `docs/plans/PLAN_VOICE_NOTES.md` | before 2026-09 |
+| Telegram channel (send voice notes to the server from the phone) | `docs/features/messaging-channel.md` | 2026-09 |
+| Frontend redesign, phases M0-M4 + cutover to `/` | `docs/features/frontend-redesign.md` | 2026-09-30 (PRs #1-#4) |
+| Notes-first Home + AI note titles (+ backfill) | `docs/features/notes-first-ai-titles.md` | 2026-10-04 (PRs #5, #6) |
 
-## Explicitly deferred
+---
 
-### Multi-user pivot — `docs/plans/PLAN_MULTI_USER.md`
-Decided to build **after everything else** on this list; the app stays
-Vivek-only until then. What's already decided about it (so it's not
-starting from zero when its turn comes):
-- Real email/password accounts.
-- Per-user data isolation across every database.
-- Per-user usage/cost metrics.
-- Apple Push dropped entirely, in favor of Telegram + Web Push.
+## 1. Now - wrap-up to make the project portfolio-ready
 
-Its remaining technical gaps are tracked above so they don't get lost,
-even though there's no urgency to resolve them yet.
+The goal of this block: Sheev can go on the resume and be shown to
+recruiters. Do these in order.
+
+- [ ] **Fix the voice-note 401 bug** (see Known bugs below) - losing a
+      recording is the worst thing the app can do to its main feature.
+- [ ] **Security review** of the whole app: API-key handling, the
+      Telegram webhook secret, presigned URL expiry, secrets in git
+      history, CORS/headers, what an unauthenticated visitor can reach.
+      Write the findings into a short `docs/SECURITY.md`; fix anything
+      serious as bug fixes.
+- [x] **README.md** at the repo root: what Sheev is, features, stack,
+      a diagram (links `ARCHITECTURE.md`), running locally, env vars,
+      tests, deployment. *(2026-10-04)* Still to add: a screenshot or GIF.
+- [x] **LICENSE** - MIT. *(2026-10-04)*
+- [ ] **Loom walkthrough** (short) - add the link to the README.
+- [ ] Then: add Sheev to the resume.
+
+## 2. Next - finish and sign off the frontend redesign
+
+All screens are built, merged and working well: Vivek has used the app
+on his desktop and iPhone and signed off the UI/UX, canvas included
+(2026-10-04), and it passed the bundle and Lighthouse checks. What's left
+is removing the old page. Details in `docs/features/frontend-redesign.md`
+(Status block at the top, §10 and §13).
+
+- [x] **Parity walk-through** (§13 Parity + New experience): checked in
+      daily use on desktop and iPhone against production data.
+      *(2026-10-04)*
+- [x] **Phase 7 - canvas review** inside the new shell - working fine.
+      *(2026-10-04)*
+- [x] **Bundle check** (§13 Quality), measured on production
+      2026-10-04: initial JS **177 KB gzipped** (200 KB as served by Fly),
+      budget 250 KB. tldraw is its own lazy chunk (`CanvasPage-*.js`,
+      438 KB gzipped) - not preloaded and not referenced by the main
+      bundle except as a dynamic import, so it only loads on `/canvas`.
+- [x] **Lighthouse** (mobile, on Home, signed in): **Performance 97,
+      Accessibility 100** (targets 85 / 95). Run by Vivek in Chrome
+      DevTools, 2026-10-04.
+- [ ] **Delete `static/index.html`** - unblocked now that parity is
+      signed off (keep `static/openapi.yaml`). Update `PROJECT_STRUCTURE.md`,
+      `ARCHITECTURE.md` and `docs/STANDARDS.md` in the same commit.
+
+## 3. Known bugs & small fixes (no feature file needed)
+
+- [ ] **A 401 during a voice-note upload signs you out and the recording
+      is lost.** It should keep the recording so it can be retried after
+      signing back in. *(highest priority)*
+- [ ] **Keep all `.db` files in one folder.** Locally, `DATA_DIR`
+      defaults to `.` (`services/config.py`), so `tasks.db`, `notes.db`,
+      `canvas.db` and `channels.db` land scattered in the repo root.
+      Default it to a single folder (e.g. `data/`), gitignore and
+      dockerignore that folder, and move the existing local files into
+      it. Production is unaffected (`DATA_DIR=/data` on Fly). Update
+      `PROJECT_STRUCTURE.md`, `ARCHITECTURE.md` and the README in the
+      same change.
+- [ ] **Groq/Tigris success paths were only verified with a stub
+      harness** - covered in practice now that notes and titles work in
+      production, but there's no automated test for them.
+
+## 4. Ideas - only being thought about
+
+Not on the roadmap. Promote to a feature file only if it becomes a real
+plan.
+
+- **Local fallback for transcription and titling.** When Groq is down or
+  rate-limited, run a small/moderate model locally on the Mac instead
+  (~30-60s per note is acceptable). Not decided how it would connect to
+  the Fly server.
+
+## 5. Dropped - don't build these
+
+- **WhatsApp channel** - dropped entirely. Telegram is the only messaging
+  channel. (Reason: WhatsApp only allows free messages within 24h of the
+  user writing, needs Meta business verification and costs per message -
+  see `docs/features/messaging-channel.md`.)
+- **Apple Push notifications** - dropped in favour of Telegram.
+- **Reminders (LLM tool-calling)** - removed from the roadmap
+  2026-10-04. Not planned. If it comes back, plan it from scratch as a
+  new `docs/features/` file (the old notes are in git history).
+- **Multi-user accounts** - removed from the roadmap 2026-10-04. The app
+  stays single-user with one shared `API_KEY`. If it comes back, plan it
+  from scratch as a new `docs/features/` file (the old plan and future
+  architecture diagram are in git history).
+- **Planner** - removed earlier (see git history).
+- **Kanban, projects, tags, due dates, linking notes to tasks** - out of
+  scope (redesign non-goals); a task is a timed session, not a to-do.

@@ -1,8 +1,38 @@
 # Frontend redesign
 
-**Status:** 🔒 Locked  <!-- 1. Think → 2. Draw → 🔒 Locked → 3. Build → ✅ Shipped -->
+**Status:** 3. Build - built, merged and live at `/`; UI/UX, canvas, bundle and Lighthouse all signed off 2026-10-04; only deleting the old page is left  <!-- 1. Think → 2. Draw → 🔒 Locked → 3. Build → ✅ Shipped -->
 
 *Started 2026-09-30. Based on the Phase 0 repository audit (same date).*
+
+> **Build progress (updated 2026-10-04)**
+>
+> | Phase / milestone | State |
+> |---|---|
+> | M0 - pytest contract/routing tests + CI gate | ✅ Done (PR #1) |
+> | Phases 2-5 (M1-M3) - shell, design system, Home, Tasks, Time Log, Notes + recorder | ✅ Done (PR #1) |
+> | Phase 6 - Apple Watch, Telegram, Settings, keyboard shortcuts | ✅ Built and merged (PR #2); signed off 2026-10-04 |
+> | Phase 6.5 - Home + Tasks phone layouts (no sideways scroll at 320-430px) | ✅ Built and merged (PR #3); signed off 2026-10-04 |
+> | M5 cutover - React app at `/`, `/app/*` 301-redirects | ✅ Done (PR #4), except deleting `static/index.html` |
+> | Phase 7 - canvas review in the finished shell | ✅ Done 2026-10-04 - working fine |
+> | §13 parity walk-through (Parity + New experience) | ✅ Done 2026-10-04 - Vivek, daily use on desktop and iPhone |
+> | Bundle checks (§13 Quality) | ✅ Passed 2026-10-04 - initial JS 177 KB gzipped (budget 250 KB); tldraw only in the lazy `CanvasPage` chunk |
+> | Lighthouse, mobile, Home (§13 Quality) | ✅ Passed 2026-10-04 - Performance 97, Accessibility 100 |
+>
+> To mark this ✅ Shipped: delete
+> `static/index.html`. Tracked in `TODO.md` §2; known bugs in `TODO.md` §3.
+>
+> **Superseded by a later feature** (`docs/features/notes-first-ai-titles.md`,
+> shipped 2026-10-04) - where this spec and that file disagree, that file wins:
+> - **Home is notes-first**, not task-first: a big Record card, recent notes
+>   grouped by day, and a slim running-task strip. The Active session card
+>   and Today stats in §5.3 were removed from Home (today's totals are on
+>   Time Log). The nav label is "Home" everywhere (no "Overview").
+> - **Nav order:** sidebar Home, Notes, Tasks, Time Log, Canvas; phone bottom
+>   nav Home · Notes · ➕ Capture · Tasks · More (§5.1 shows the old order).
+> - **Notes have titles** (AI-generated, editable via `PATCH /api/notes/<id>`),
+>   so the §3 non-goal "editing note titles", the §4.6 "first line of the
+>   transcript is used as its title" and the §9 "no new endpoints" no longer
+>   describe the app. Search covers titles and transcripts.
 
 This doc covers **Think** and **Draw** for the redesign. The **Build** task
 list is in §10 (Migration strategy), and the finish line is in §13
@@ -74,8 +104,7 @@ Not in this feature:
 - **Editing transcripts**, note titles, or note search on the server
   (in-browser search over loaded notes *is* in scope).
 - **Offline mode / PWA / push notifications.**
-- **Multi-user accounts.** Still the single shared API key
-  (`docs/plans/PLAN_MULTI_USER.md` remains deferred).
+- **Multi-user accounts.** Still the single shared API key.
 - **Upgrading tldraw** or changing how the canvas is stored.
 - **Charts or analytics** beyond the Home stats listed in §5.2.
 
@@ -682,47 +711,48 @@ flowchart LR
 ### Build task list
 
 **M0 — Safety net** (no app code changes)
-- [ ] `tests/` with pytest: `/toggle` + `/status` response shapes (with
+- [x] `tests/` with pytest: `/toggle` + `/status` response shapes (with
       `?key=` and `X-API-Key`), 401 on a wrong key, JSON 404 for unknown
       paths and unknown `/api/*` paths. Uses a temporary `DATA_DIR`.
-- [ ] CI: a test job (pytest + `npm ci && npm run build`) that must pass
+- [x] CI: a test job (pytest + `npm ci && npm run build`) that must pass
       before the deploy job runs.
 
 **M1 — Foundation + Canvas**
-- [ ] Restructure `frontend/` into `src/` (§8.2); update `tsconfig`
+- [x] Restructure `frontend/` into `src/` (§8.2); update `tsconfig`
       includes; Vite `base '/app/'` + dev proxy.
-- [ ] Tokens, Tailwind, fonts, `components/ui` primitives, `AppShell` /
+- [x] Tokens, Tailwind, fonts, `components/ui` primitives, `AppShell` /
       `Sidebar` / `BottomNav`.
-- [ ] `api/client.ts` + auth gate + session expiry (same keys).
-- [ ] Canvas as a lazy route with the fixed persistence hook.
-- [ ] Flask: serve `/app*` (§8.6); `/canvas` → 302 `/app/canvas`; remove
-      `/canvas/assets/*`; Docker `web_dist`.
-- [ ] Routing tests: `/app/*` returns HTML, the API still returns JSON 404s.
-- [ ] Update `PROJECT_STRUCTURE.md`, `ARCHITECTURE.md`, `docs/STANDARDS.md`
+- [x] `api/client.ts` + auth gate + session expiry (same keys).
+- [x] Canvas as a lazy route with the fixed persistence hook.
+- [x] Flask: serve `/app*` (§8.6); `/canvas` → 302 `/app/canvas`; remove
+      `/canvas/assets/*`; Docker `web_dist`. *(Later replaced by the M5
+      cutover routing.)*
+- [x] Routing tests: `/app/*` returns HTML, the API still returns JSON 404s.
+- [x] Update `PROJECT_STRUCTURE.md`, `ARCHITECTURE.md`, `docs/STANDARDS.md`
       (the "keep static/ and frontend/ split" rule is reversed, see
       Decisions).
 
 **M2 — Track**
-- [ ] `utils/time.ts` + vitest tests (parsing, elapsed time across
+- [x] `utils/time.ts` + vitest tests (parsing, elapsed time across
       midnight, "today" in server timezone, duration formatting).
-- [ ] Guarded toggle hook + Start sheet + Capture sheet.
-- [ ] Home, Tasks (list/table/search/filter), task detail (edit/delete/
+- [x] Guarded toggle hook + Start sheet + Capture sheet.
+- [x] Home, Tasks (list/table/search/filter), task detail (edit/delete/
       stop/start again), Time Log.
 
 **M3 — Capture**
-- [ ] `RecorderProvider` porting the state machine exactly (+ vitest
+- [x] `RecorderProvider` porting the state machine exactly (+ vitest
       tests for the transitions).
-- [ ] Notes list/detail/search/delete, audio link refresh.
-- [ ] Telegram screen.
+- [x] Notes list/detail/search/delete, audio link refresh.
+- [x] Telegram screen.
 
 **M4 — Polish**
-- [ ] Watch screen, Settings, keyboard shortcuts, dark mode check,
+- [x] Watch screen, Settings, keyboard shortcuts, dark mode check,
       empty/loading/error states on every screen.
-- [ ] Performance and accessibility checks from §13.
+- [x] Performance and accessibility checks from §13. *(2026-10-04: bundle 177 KB gzipped; Lighthouse 97 / 100.)*
 
 **M5 — Cutover** (one commit)
-- [ ] Walk through the parity checklist (§13) on a real phone and a
-      desktop against production data.
+- [x] Walk through the parity checklist (§13) on a real phone and a
+      desktop against production data. *(✅ 2026-10-04: checked by Vivek in daily use on desktop and iPhone.)*
 - [x] `ROUTER_BASENAME = ''`; Flask route list for `/`; `/app*` → 301;
       `/canvas` serves the app directly. *(2026-09-30)*
 - [ ] Delete `static/index.html` (keep `static/openapi.yaml`). *(Deferred
@@ -748,7 +778,7 @@ gets reviewed visually after each milestone.
 | 5 | Voice Notes → **STOP for review** | M3: recorder, Notes list/detail |
 | 6 | Apple Watch + integrations/settings → **STOP for review** | M3: Telegram; M4: Watch, Settings |
 | 7 | Canvas → **STOP for review** | Canvas in the finished shell (see note) |
-| 8–10 | Real-time UX, production polish, portfolio/demo | M4: shortcuts, dark mode, performance, accessibility. Proceed step by step, with review where appropriate. M5 cutover still needs the parity checklist. |
+| ~~8–10~~ | ~~Real-time UX, production polish, portfolio/demo~~ | **Removed from scope 2026-10-04** (see Decisions). The perf checks and the M5 cutover still apply. |
 
 *Note:* M0 (tests + CI gate) comes before Phase 2 and has no visual
 checkpoint, but its tests must pass. The canvas **route move** stays in M1,
@@ -877,55 +907,84 @@ finished shell, plus any adjustments that come out of it.
   (full screen on phones), instead of §5.2's two-pane Notes layout on
   desktop - chosen during Phase 5 for consistency with Tasks.
   *(2026-09-30)*
+- **`static/index.html` kept after the cutover** (no longer served at `/`)
+  until the cutover is reviewed; deleted after the §13 parity walk-through.
+  *(2026-09-30)*
+- **Phases 8-10 (real-time UX, production polish, demo) removed from
+  scope.** The app is already working well on desktop and iPhone; the
+  demo is covered by the Loom walkthrough in `TODO.md` §1. *(2026-10-04)*
+- **Dropped from scope:** the "times match the old app" spot-check (the
+  old page is no longer used, and times look right in daily use); the
+  build commit in Settings (§5.3 - not worth a CI build arg for a personal
+  tool); and the React Query `staleTime` question (stays at 15s).
+  *(2026-10-04)*
+- **AA contrast check dropped from the Definition of Done.** The design
+  tokens (§7.1) were chosen for AA; a measured check isn't worth the time
+  for a personal tool. The known ~4.2:1 primary-button hover is accepted.
+  *(2026-10-04)*
+- **Home became notes-first and notes got AI titles** - a separate,
+  later feature (`docs/features/notes-first-ai-titles.md`) that changes
+  §5.1, §5.3 and the note-title parts of §3/§4.6/§9 of this spec. See the
+  "Superseded" note at the top. *(2026-10-03)*
 
 ---
 
 ## 13. Definition of Done
 
 **Parity** (everything the old app does, checked on a phone and a desktop):
-- [ ] Login with API key; 24h sliding expiry; logout on 401; existing
+*(✅ 2026-10-04: checked by Vivek in daily use on desktop and iPhone.)*
+- [x] Login with API key; 24h sliding expiry; logout on 401; existing
       stored keys still work (no forced logout on deploy).
-- [ ] Start/stop from the web; name on start; list tasks; open, rename,
+- [x] Start/stop from the web; name on start; list tasks; open, rename,
       edit start/end, reopen (under the §4.4 rule), delete.
-- [ ] Record, cancel, stop & save, transcribing state, error with the
+- [x] Record, cancel, stop & save, transcribing state, error with the
       server's message, retry with the same recording, play, delete notes.
-- [ ] Telegram connect (link and "no bot username" case) and test message.
-- [ ] Canvas loads, autosaves, saves on tab hide, shows save failures.
-- [ ] Watch Shortcut, **unchanged**, still starts/stops tasks, and the M0
+- [x] Telegram connect (link and "no bot username" case) and test message.
+- [x] Canvas loads, autosaves, saves on tab hide, shows save failures.
+- [x] Watch Shortcut, **unchanged**, still starts/stops tasks, and the M0
       contract tests pass.
-- [ ] `/docs` and `/static/openapi.yaml` still work; unknown `/api/*`
+- [x] `/docs` and `/static/openapi.yaml` still work; unknown `/api/*`
       paths return JSON 404.
 
-**New experience**
-- [ ] Every screen and route in §5 is implemented, with loading, empty and
+**New experience** *(✅ 2026-10-04: checked by Vivek in daily use on desktop and iPhone.)*
+- [x] Every screen and route in §5 is implemented, with loading, empty and
       error states.
-- [ ] Mobile: bottom nav, bottom sheets, full-screen details, no tables
+- [x] Mobile: bottom nav, bottom sheets, full-screen details, no tables
       below 1024px, every interactive element at least 44px.
-- [ ] Desktop: sidebar, Tasks table + drawer, Notes two-pane, shortcuts
-      from §6.2.
-- [ ] Light and dark themes both pass AA contrast for text and controls;
-      no flash of the wrong theme on load.
+- [x] Desktop: sidebar, Tasks table + drawer, Notes two-pane, shortcuts
+      from §6.2. *(Notes uses the drawer instead of two panes - approved
+      deviation, see Decisions.)*
+- ~~Light and dark themes both pass AA contrast for text and controls;
+  no flash of the wrong theme on load.~~ *(Dropped 2026-10-04 - not
+  important enough to measure; the tokens in §7.1 were designed for AA.)*
 
 **Quality**
-- [ ] Initial JS for `/` is at most **250 KB gzipped**; the tldraw chunk is
-      **not requested** until `/canvas` is opened.
-- [ ] Lighthouse mobile Performance ≥ 85 and Accessibility ≥ 95 on Home.
-- [ ] vitest passes (time utils, recorder transitions); pytest passes
+- [x] Initial JS for `/` is at most **250 KB gzipped**; the tldraw chunk is
+      **not requested** until `/canvas` is opened. *(2026-10-04, production:
+      `index-*.js` 177 KB gzipped / 200 KB as served; `CanvasPage-*.js`
+      438 KB gzipped, only reachable through a dynamic import, not
+      preloaded.)*
+- [x] Lighthouse mobile Performance ≥ 85 and Accessibility ≥ 95 on Home.
+      *(2026-10-04: Performance 97, Accessibility 100.)*
+- [x] vitest passes (time utils, recorder transitions); pytest passes
       (Watch contract, routing); CI blocks deploys when tests fail.
-- [ ] Engineering rules in §8.2 are followed (no `fetch` outside
+      *(CI gates every deploy; 47 pytest / 66 vitest on 2026-10-03.)*
+- [x] Engineering rules in §8.2 are followed (no `fetch` outside
       `src/api/`; file size and error handling as described there).
-- [ ] Times shown match the old app for the same tasks (spot-check 5).
+      *(2026-10-04: checked - no `fetch`/`XMLHttpRequest` anywhere outside
+      `frontend/src/api/`.)*
+- ~~Times shown match the old app for the same tasks (spot-check 5).~~
+  *(Dropped 2026-10-04 - see Decisions.)*
 
 **Cutover**
 - [ ] App served at `/`; `/app/*` 301-redirects; `static/index.html`
-      deleted.
-- [ ] `PROJECT_STRUCTURE.md`, `ARCHITECTURE.md`, `docs/STANDARDS.md`
-      updated in the same change.
+      deleted. *(First two done in PR #4; the file is still in the repo.)*
+- [x] `PROJECT_STRUCTURE.md`, `ARCHITECTURE.md`, `docs/STANDARDS.md`
+      updated in the same change. *(Done at cutover; update again when
+      `static/index.html` is deleted.)*
 
 ---
 
-**What actually got built / what I learned:** *(filled in during Build)*
-
----
-
-STATUS: 🔒 Locked
+**What actually got built / what I learned:** *(filled in during Build -
+so far: see the Build progress block at the top, the Decisions above, and
+the known bugs in `TODO.md` §3.)*

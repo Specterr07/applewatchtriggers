@@ -1,5 +1,12 @@
 # Project instructions
 
+## Start here
+
+Read `docs/claude-handoff.md` first - it says where the project stands,
+the reading order, and the rules that matter most. The roadmap and
+backlog (what's shipped, next, buggy, ideas or dropped) is `TODO.md`.
+Don't rely on earlier chat context; the repo is the source of truth.
+
 ## Follow the feature process (docs/PROCESS.md)
 
 Each new feature has one file in `docs/features/`, with three steps:
@@ -8,6 +15,13 @@ file's Status says 🔒 Locked** - if asked to, say what's still missing
 and offer to finish it. When a conversation answers one of a feature's
 open questions, tick it and write the answer in the file. Bug fixes and
 small tweaks don't need this.
+
+## Keep the status docs in sync
+
+When work finishes, gets added or gets dropped, update `TODO.md` in the
+same change (tick it, move it, or add it). When an area changes state
+(e.g. a feature ships), update the table in `docs/claude-handoff.md` §3
+and the feature file's **Status** line too.
 
 ## Keep PROJECT_STRUCTURE.md in sync
 

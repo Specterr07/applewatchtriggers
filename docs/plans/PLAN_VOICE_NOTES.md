@@ -2,6 +2,13 @@
 
 **Status: Shipped.** Commit `52088d9`. Written up here retroactively.
 
+> **Since then:** the pipeline moved to `services/note_pipeline.py` so
+> Telegram voice notes share it (`docs/features/messaging-channel.md`);
+> notes gained AI titles (`docs/features/notes-first-ai-titles.md`); and
+> the Notes UI moved from `static/index.html` into the React app
+> (`docs/features/frontend-redesign.md`). The decisions below are the
+> original record.
+
 **Goal:** a new "Notes" tab for voice notes - record audio in-browser,
 transcribe it, and keep only a small compressed copy of the audio.
 

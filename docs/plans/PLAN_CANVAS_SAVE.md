@@ -2,6 +2,12 @@
 
 **Status: Shipped.** Commit `a8ecf2e`. Written up here retroactively.
 
+> **Since then:** the canvas moved into the React app as a lazy-loaded
+> route (`frontend/src/features/canvas/`), with the save logic in a hook
+> that now reports save failures (`docs/features/frontend-redesign.md`
+> §8.7). The API and `canvas.db` are unchanged. The paths below are the
+> original record.
+
 **Goal:** the tldraw canvas (`frontend/`) was stuck in one browser's local
 storage via tldraw's `persistenceKey`. Make the same canvas available
 across devices instead.
