@@ -61,19 +61,22 @@ recruiters. Do these in order.
 
 ## 2. Next - finish and sign off the frontend redesign
 
-All screens are built and merged, but the spec's review steps were never
-formally done. Details in `docs/features/frontend-redesign.md` (Status
+All screens are built, merged and working well: Vivek has used the app
+on his desktop and iPhone and signed off the UI/UX (2026-10-04). What's
+left is the canvas review, the measured perf/a11y checks, and removing
+the old page. Details in `docs/features/frontend-redesign.md` (Status
 block at the top, §10 and §13).
 
-- [ ] **Parity walk-through** (§13): every item, on a real phone and a
-      desktop, against production data. Tick the boxes in §13 as they pass.
+- [x] **Parity walk-through** (§13 Parity + New experience): checked in
+      daily use on desktop and iPhone against production data.
+      *(2026-10-04)*
 - [ ] **Phase 7 - canvas review** inside the new shell (visual/UX pass,
       plus any small fixes that come out of it).
 - [ ] **Performance & accessibility check** (§13 Quality): initial JS
       ≤ 250 KB gzipped, tldraw chunk not loaded on Home, Lighthouse mobile
       Performance ≥ 85 / Accessibility ≥ 95.
-- [ ] **Delete `static/index.html`** once the parity walk-through passes
-      (keep `static/openapi.yaml`). Update `PROJECT_STRUCTURE.md`,
+- [ ] **Delete `static/index.html`** - unblocked now that parity is
+      signed off (keep `static/openapi.yaml`). Update `PROJECT_STRUCTURE.md`,
       `ARCHITECTURE.md` and `docs/STANDARDS.md` in the same commit.
 - [ ] Phases 8-10 (real-time UX polish, demo) - only what's still worth
       doing after the wrap-up; the Loom video above covers "demo".

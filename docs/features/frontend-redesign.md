@@ -1,6 +1,6 @@
 # Frontend redesign
 
-**Status:** 3. Build - built, merged and live at `/`; formal sign-off still open  <!-- 1. Think → 2. Draw → 🔒 Locked → 3. Build → ✅ Shipped -->
+**Status:** 3. Build - built, merged and live at `/`; UI/UX signed off 2026-10-04; canvas review, perf/a11y checks and deleting the old page still open  <!-- 1. Think → 2. Draw → 🔒 Locked → 3. Build → ✅ Shipped -->
 
 *Started 2026-09-30. Based on the Phase 0 repository audit (same date).*
 
@@ -10,15 +10,16 @@
 > |---|---|
 > | M0 - pytest contract/routing tests + CI gate | ✅ Done (PR #1) |
 > | Phases 2-5 (M1-M3) - shell, design system, Home, Tasks, Time Log, Notes + recorder | ✅ Done (PR #1) |
-> | Phase 6 - Apple Watch, Telegram, Settings, keyboard shortcuts | ✅ Built and merged (PR #2); no formal review recorded |
-> | Phase 6.5 - Home + Tasks phone layouts (no sideways scroll at 320-430px) | ✅ Built and merged (PR #3); no formal review recorded |
+> | Phase 6 - Apple Watch, Telegram, Settings, keyboard shortcuts | ✅ Built and merged (PR #2); signed off 2026-10-04 |
+> | Phase 6.5 - Home + Tasks phone layouts (no sideways scroll at 320-430px) | ✅ Built and merged (PR #3); signed off 2026-10-04 |
 > | M5 cutover - React app at `/`, `/app/*` 301-redirects | ✅ Done (PR #4), except deleting `static/index.html` |
 > | Phase 7 - canvas review in the finished shell | Not started |
-> | Perf/a11y checks + §13 parity walk-through | Not started - none of §13 has been formally walked yet |
+> | §13 parity walk-through (Parity + New experience) | ✅ Done 2026-10-04 - Vivek, daily use on desktop and iPhone |
+> | Perf/a11y checks (§13 Quality: bundle size, Lighthouse, AA contrast, time spot-check) | Not started |
 > | Phases 8-10 - real-time UX, polish, demo | Not started; demo is covered by the Loom video in `TODO.md` §1 |
 >
-> To mark this ✅ Shipped: walk §13 on a phone and a desktop, do the
-> Phase 7 canvas review and the perf/a11y checks, then delete
+> To mark this ✅ Shipped: do the Phase 7 canvas review and the perf/a11y
+> checks, then delete
 > `static/index.html`. Tracked in `TODO.md` §2; known bugs in `TODO.md` §3.
 >
 > **Superseded by a later feature** (`docs/features/notes-first-ai-titles.md`,
@@ -751,8 +752,8 @@ flowchart LR
 - [ ] Performance and accessibility checks from §13.
 
 **M5 — Cutover** (one commit)
-- [ ] Walk through the parity checklist (§13) on a real phone and a
-      desktop against production data.
+- [x] Walk through the parity checklist (§13) on a real phone and a
+      desktop against production data. *(✅ 2026-10-04: checked by Vivek in daily use on desktop and iPhone.)*
 - [x] `ROUTER_BASENAME = ''`; Flask route list for `/`; `/app*` → 301;
       `/canvas` serves the app directly. *(2026-09-30)*
 - [ ] Delete `static/index.html` (keep `static/openapi.yaml`). *(Deferred
@@ -920,28 +921,32 @@ finished shell, plus any adjustments that come out of it.
 ## 13. Definition of Done
 
 **Parity** (everything the old app does, checked on a phone and a desktop):
-- [ ] Login with API key; 24h sliding expiry; logout on 401; existing
+*(✅ 2026-10-04: checked by Vivek in daily use on desktop and iPhone.)*
+- [x] Login with API key; 24h sliding expiry; logout on 401; existing
       stored keys still work (no forced logout on deploy).
-- [ ] Start/stop from the web; name on start; list tasks; open, rename,
+- [x] Start/stop from the web; name on start; list tasks; open, rename,
       edit start/end, reopen (under the §4.4 rule), delete.
-- [ ] Record, cancel, stop & save, transcribing state, error with the
+- [x] Record, cancel, stop & save, transcribing state, error with the
       server's message, retry with the same recording, play, delete notes.
-- [ ] Telegram connect (link and "no bot username" case) and test message.
-- [ ] Canvas loads, autosaves, saves on tab hide, shows save failures.
-- [ ] Watch Shortcut, **unchanged**, still starts/stops tasks, and the M0
+- [x] Telegram connect (link and "no bot username" case) and test message.
+- [x] Canvas loads, autosaves, saves on tab hide, shows save failures.
+- [x] Watch Shortcut, **unchanged**, still starts/stops tasks, and the M0
       contract tests pass.
-- [ ] `/docs` and `/static/openapi.yaml` still work; unknown `/api/*`
+- [x] `/docs` and `/static/openapi.yaml` still work; unknown `/api/*`
       paths return JSON 404.
 
-**New experience**
-- [ ] Every screen and route in §5 is implemented, with loading, empty and
+**New experience** *(✅ 2026-10-04: checked by Vivek in daily use on desktop and iPhone.)*
+- [x] Every screen and route in §5 is implemented, with loading, empty and
       error states.
-- [ ] Mobile: bottom nav, bottom sheets, full-screen details, no tables
+- [x] Mobile: bottom nav, bottom sheets, full-screen details, no tables
       below 1024px, every interactive element at least 44px.
-- [ ] Desktop: sidebar, Tasks table + drawer, Notes two-pane, shortcuts
-      from §6.2.
+- [x] Desktop: sidebar, Tasks table + drawer, Notes two-pane, shortcuts
+      from §6.2. *(Notes uses the drawer instead of two panes - approved
+      deviation, see Decisions.)*
 - [ ] Light and dark themes both pass AA contrast for text and controls;
-      no flash of the wrong theme on load.
+      no flash of the wrong theme on load. *(Left open: needs a measured
+      check, and the primary-button hover is known to be ~4.2:1 - see
+      `TODO.md` §3.)*
 
 **Quality**
 - [ ] Initial JS for `/` is at most **250 KB gzipped**; the tldraw chunk is
