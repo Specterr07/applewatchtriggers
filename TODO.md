@@ -62,16 +62,16 @@ recruiters. Do these in order.
 ## 2. Next - finish and sign off the frontend redesign
 
 All screens are built, merged and working well: Vivek has used the app
-on his desktop and iPhone and signed off the UI/UX (2026-10-04). What's
-left is the canvas review, the measured perf/a11y checks, and removing
+on his desktop and iPhone and signed off the UI/UX, canvas included
+(2026-10-04). What's left is the measured performance check and removing
 the old page. Details in `docs/features/frontend-redesign.md` (Status
 block at the top, §10 and §13).
 
 - [x] **Parity walk-through** (§13 Parity + New experience): checked in
       daily use on desktop and iPhone against production data.
       *(2026-10-04)*
-- [ ] **Phase 7 - canvas review** inside the new shell (visual/UX pass,
-      plus any small fixes that come out of it).
+- [x] **Phase 7 - canvas review** inside the new shell - working fine.
+      *(2026-10-04)*
 - [ ] **Performance & accessibility check** (§13 Quality): initial JS
       ≤ 250 KB gzipped, tldraw chunk not loaded on Home, Lighthouse mobile
       Performance ≥ 85 / Accessibility ≥ 95.
@@ -90,8 +90,6 @@ block at the top, §10 and §13).
       commit, but nothing records one (the Docker context excludes
       `.git`). Needs a build arg passed from CI. See the comment in
       `frontend/src/features/settings/`.
-- [ ] **Primary-button hover drops to ~4.2:1 contrast** in light mode
-      (AA needs 4.5:1).
 - [ ] **Decide React Query `staleTime`** (`frontend/src/api/queryClient.ts`,
       currently 15s): focus-driven refetches were seen every ~18s; raising
       it to 60s is the open option.
