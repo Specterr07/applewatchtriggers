@@ -1,260 +1,342 @@
-# Current Architecture (as deployed today)
+# Architecture
 
-This reflects what's actually in the repo right now: `Dockerfile`, `app.py`,
-`routes/`, `services/`, `frontend/`, `fly.toml`, `.github/workflows/`. No
-aspirational or planned pieces are included here - see `TODO.md` for
-what's coming. Last checked against the code: 2026-10-04.
+How Sheev is built and deployed **today**. Everything here was checked
+against the code on 2026-10-04 (`app.py`, `routes/`, `services/`,
+`frontend/`, `Dockerfile`, `fly.toml`, `.github/workflows/deploy.yml`).
+Nothing planned or speculative is included; see `TODO.md` for what's next
+and `PROJECT_STRUCTURE.md` for what every file does.
+
+**Contents**
+1. [Overview](#1-overview)
+2. [System diagram](#2-system-diagram)
+3. [Key flows](#3-key-flows)
+4. [Backend (Flask)](#4-backend-flask)
+5. [Storage](#5-storage)
+6. [External services](#6-external-services)
+7. [Frontend (React)](#7-frontend-react)
+8. [Security model](#8-security-model)
+9. [Build, CI and deploy](#9-build-ci-and-deploy)
+10. [Design decisions](#10-design-decisions)
+11. [Known limitations](#11-known-limitations)
+
+---
+
+## 1. Overview
+
+Sheev is a single-user personal tool: one Flask process on one Fly.io
+machine, a React app it serves, four small SQLite databases on a
+persistent volume, and three external services.
+
+| Part | What it is | Where |
+|---|---|---|
+| **Clients** | React web app (desktop + phone), Apple Watch Shortcut, Telegram bot | Browser, Watch, Telegram |
+| **Server** | Flask app, 5 blueprints, run by gunicorn (1 worker) | Fly.io, region `sin` |
+| **Data** | `tasks.db`, `notes.db`, `canvas.db`, `channels.db` (SQLite) | Fly volume at `/data` |
+| **Audio** | Compressed voice-note MP3s | Tigris (S3-compatible object storage) |
+| **AI** | Whisper transcription + short note titles | Groq API |
+| **Messaging** | Bot for sending voice notes in from the phone | Telegram Bot API (webhook) |
+
+The three jobs the app does:
+- **Voice notes (main job).** Record in the web app or send a voice note to
+  the Telegram bot → transcribed → titled → compressed → stored.
+- **Time tracking.** One tap on the Watch (or Start/Stop in the web app)
+  starts or ends a task.
+- **Canvas.** A tldraw drawing surface, saved on the server.
+
+---
+
+## 2. System diagram
 
 ```mermaid
-flowchart TB
-    Watch["📱 Apple Watch Shortcut<br/>GET /toggle?key=..."]
-    CanvasApp["🌐 Browser<br/>React app at /<br/>all screens; canvas lazy-loaded<br/>(/app/* 301-redirects here)"]
-    TelegramUser["📱 Me in Telegram"]
-    TelegramServers["Telegram Servers<br/>(Bot API)"]
-
-    subgraph CICD["GitHub Actions — .github/workflows/deploy.yml"]
-        direction LR
-        Push["push to main<br/>(PRs: test job only)"] --> TestJob["test job<br/>pytest · npm ci · lint<br/>npm test · npm run build"]
-        TestJob -->|"only if it passes"| FlyDeploy["flyctl deploy --remote-only"]
+flowchart LR
+    subgraph Clients
+        Web["🌐 React app<br/>(desktop + iPhone)"]
+        Watch["⌚ Apple Watch Shortcut"]
+        TGUser["📱 Telegram app"]
     end
 
-    subgraph Docker["Dockerfile — multi-stage build"]
+    TGAPI["Telegram Bot API"]
+
+    subgraph Fly["Fly.io · 1 machine · gunicorn, 1 worker"]
         direction TB
-        Stage1["Stage 1: node:20-slim<br/>npm ci && npm run build<br/>frontend/ → frontend/dist"]
-        Stage2["Stage 2: python:3.12-slim<br/>apt-get install ffmpeg<br/>pip install -r requirements.txt<br/>COPY app.py routes/ services/ static/ scripts/<br/>COPY --from=Stage1 dist → web_dist/"]
-        Stage1 -->|"only compiled JS/CSS crosses over"| Stage2
+        Pages["routes/pages.py<br/>serves the React app"]
+        Tasks["routes/tasks.py<br/>/toggle · /status · /api/logs"]
+        Notes["routes/notes.py<br/>/api/notes"]
+        Canvas["routes/canvas.py<br/>/api/canvas"]
+        Telegram["routes/telegram.py<br/>/telegram/webhook · /api/channels"]
+        Pipeline["services/note_pipeline.py<br/>save_voice_note()"]
+        Vol[("Volume /data<br/>tasks.db · notes.db<br/>canvas.db · channels.db")]
     end
 
-    FlyDeploy --> Stage1
+    Groq["Groq API<br/>Whisper + gpt-oss-20b"]
+    Tigris[("Tigris<br/>notes/&lt;uuid&gt;.mp3")]
 
-    subgraph FlyIO["Fly.io — region sin"]
-        Machine["1 machine<br/>gunicorn --workers 1 --timeout 120<br/>min_machines_running=1, force_https"]
-        Volume[("Persistent volume /data<br/>mount: task_data")]
-    end
+    Web -->|"X-API-Key header"| Tasks
+    Web --> Pages
+    Web -->|"X-API-Key"| Notes
+    Web -->|"X-API-Key"| Canvas
+    Web -->|"X-API-Key"| Telegram
+    Watch -->|"GET /toggle?key=…"| Tasks
+    TGUser <--> TGAPI
+    TGAPI -->|"webhook + secret header"| Telegram
+    Telegram -->|"sendMessage / getFile"| TGAPI
 
-    Stage2 -.->|"image deployed to"| Machine
-    Machine --- Volume
-
-    subgraph FlaskApp["Flask app (app.py registers 5 blueprints)"]
-        Auth["services/auth.py<br/>require_key decorator<br/>API_KEY env var"]
-        PagesRoute["routes/pages.py<br/>/, /tasks, /notes, /canvas, …  →  web_dist/index.html<br/>/app/assets/*  →  web_dist/assets<br/>/app, /app/*  →  301 without /app"]
-        TasksRoute["routes/tasks.py<br/>/toggle /status<br/>/api/logs, /api/logs/{id}"]
-        CanvasRoute["routes/canvas.py<br/>GET/PUT /api/canvas"]
-        NotesRoute["routes/notes.py<br/>POST/GET /api/notes<br/>PATCH/DELETE /api/notes/{id}"]
-        TelegramRoute["routes/telegram.py<br/>POST /telegram/webhook<br/>POST /api/channels/telegram/link<br/>POST /api/channels/test"]
-        ChannelsSvc["services/channels.py<br/>send_to_user"]
-        TelegramSvc["services/telegram.py<br/>send_message · download_voice"]
-        PipelineSvc["services/note_pipeline.py<br/>save_voice_note"]
-        TitlingSvc["services/titling.py<br/>generate_title (never raises)"]
-    end
-
-    Machine --> FlaskApp
-
-    Watch -->|"?key= query param"| TasksRoute
-    CanvasApp -->|"X-API-Key header"| TasksRoute
-    CanvasApp -->|"X-API-Key header"| NotesRoute
-    CanvasApp -->|"X-API-Key header"| TelegramRoute
-    PagesRoute -.->|"serves compiled app,<br/>which the browser then runs as"| CanvasApp
-    CanvasApp -->|"X-API-Key header<br/>(same localStorage keys<br/>as the old page)"| CanvasRoute
-
-    TelegramUser <--> TelegramServers
-    TelegramServers -->|"POST webhook"| TelegramRoute
-    TelegramSvc -->|"sendMessage / getFile"| TelegramServers
-
-    TasksRoute --> Auth
-    CanvasRoute --> Auth
-    NotesRoute --> Auth
-    TelegramRoute --> Auth
-    TelegramRoute --> ChannelsSvc
-    TelegramRoute --> TelegramSvc
-    TelegramRoute --> PipelineSvc
-    NotesRoute --> PipelineSvc
-    PipelineSvc --> TitlingSvc
-    ChannelsSvc --> TelegramSvc
-
-    subgraph Storage["SQLite — one file per feature, all on /data"]
-        TasksDB[("tasks.db<br/>tasks(id, name, start, end,<br/>duration_minutes)")]
-        CanvasDB[("canvas.db<br/>canvas(id=1 only, snapshot JSON,<br/>updated_at)")]
-        NotesDB[("notes.db<br/>notes(id, transcript, title,<br/>audio_key, created_at)")]
-        ChannelsDB[("channels.db<br/>links, link_codes, seen_updates")]
-    end
-
-    Volume --- Storage
-    TasksRoute --> TasksDB
-    CanvasRoute --> CanvasDB
-    PipelineSvc --> NotesDB
-    NotesRoute --> NotesDB
-    TelegramRoute --> ChannelsDB
-    ChannelsSvc --> ChannelsDB
-
-    subgraph External["External services"]
-        Tigris[("🪣 Tigris object storage<br/>bucket = BUCKET_NAME<br/>key: notes/&lt;uuid&gt;.mp3")]
-        Groq["🎙️ Groq API<br/>whisper-large-v3-turbo (transcripts)<br/>openai/gpt-oss-20b (titles)"]
-    end
-
-    PipelineSvc -->|"boto3: put_object,<br/>generate_presigned_url"| Tigris
-    NotesRoute -->|"boto3: delete_object,<br/>generate_presigned_url"| Tigris
-    PipelineSvc -->|"transcribe original<br/>upload before compressing"| Groq
-    TitlingSvc -->|"short title from<br/>first 1500 chars"| Groq
-
-    N1["Why per-feature SQLite files,<br/>not one shared DB: each feature's<br/>storage stays independently simple<br/>and swappable - tasks moved off CSV<br/>only because it needed stable ids;<br/>canvas/notes just followed that<br/>same established pattern"]:::note
-    N2["Why multi-stage Docker build:<br/>Node/npm/source .tsx files never<br/>reach the deployed image - only<br/>the compiled app JS/CSS does"]:::note
-    N3["Why ffmpeg + 120s gunicorn timeout:<br/>POST /api/notes does upload +<br/>Groq transcription + ffmpeg compression<br/>+ a Tigris upload, all in ONE request"]:::note
-    N4["Why presigned URLs, not stored ones:<br/>only the object KEY is durable in notes.db -<br/>a stored URL would just be a presigned<br/>link quietly expiring later"]:::note
-    N5["Why the Watch uses a query param but<br/>the browser uses a header: the Shortcut's<br/>'Get Contents of URL' action can't easily<br/>set custom headers; the same require_key<br/>check accepts either"]:::note
-
-    Storage -.- N1
-    Docker -.- N2
-    NotesRoute -.- N3
-    Tigris -.- N4
-    Watch -.- N5
-
-    classDef note fill:#fff9db,stroke:#e0c341,stroke-dasharray:3 3,color:#000,text-align:left;
+    Notes --> Pipeline
+    Telegram --> Pipeline
+    Pipeline --> Groq
+    Pipeline --> Tigris
+    Notes -->|"presigned playback URLs"| Tigris
+    Tasks --> Vol
+    Notes --> Vol
+    Canvas --> Vol
+    Telegram --> Vol
+    Pipeline --> Vol
 ```
 
-## Written summary
+---
 
-### Build & deploy
-Every push to `main` (and every pull request into `main`) runs
-`.github/workflows/deploy.yml`. Its `test` job runs `pytest` (including the
-Watch contract tests) and the frontend's `npm ci`, `npm run lint`,
-`npm test` and `npm run build`. Only if that passes, and only for a push to
-`main`, the `deploy` job runs `flyctl deploy --remote-only` - Fly's remote
-builder does the actual Docker build, using the `FLY_API_TOKEN` GitHub
-secret.
+## 3. Key flows
 
-**The Dockerfile is two stages** because the React app (`frontend/`, which
-includes the tldraw canvas) needs Node, npm, and a real build step, but
-the *deployed* app is a lightweight Python/Flask process that should never
-need Node at runtime. Stage 1 (`node:20-slim`) builds `frontend/` down to
-plain JS/CSS/HTML in `frontend/dist`. Stage 2 (`python:3.12-slim`) never sees
-Node at all - it only `COPY --from=frontend-build`s the *compiled output*
-(as `web_dist/`). This keeps the production image small and keeps a
-heavy JS toolchain from ever needing to exist on the server.
+### 3.1 Saving a voice note (web or Telegram)
 
-Stage 2 also `apt-get install`s `ffmpeg` (for voice-note compression -
-`python:3.12-slim` doesn't ship it) and installs Python deps plus
-`gunicorn`. The `gunicorn` timeout is bumped from the 30s default to 120s
-specifically because `POST /api/notes` is a single request that does
-upload → Groq transcription → ffmpeg compression → a Tigris upload; a
-30s-killed worker there would look like a fast failure instead of a normal,
-slightly-slow success.
+Both entry points end in the same function, `save_voice_note()`, so a
+Telegram note and a web note are stored identically.
 
-### Fly.io runtime
-One machine in the `sin` region, `min_machines_running = 1` and
-`auto_stop_machines = false` (so a request never waits on a cold start), with
-one persistent volume mounted at `/data`. `DATA_DIR=/data` is the only reason
-the same code works identically in local dev (where `DATA_DIR` defaults to
-`.`) and in production - nothing else in the app branches on environment.
+```mermaid
+sequenceDiagram
+    autonumber
+    participant C as Web app / Telegram webhook
+    participant P as note_pipeline.save_voice_note()
+    participant G as Groq
+    participant F as ffmpeg
+    participant T as Tigris
+    participant DB as notes.db
 
-### The Flask app
-`app.py` itself is just wiring: it creates the app, sets up Swagger docs
-(`/docs`, generated from `static/openapi.yaml`), and registers five
-blueprints. Every blueprint's actual logic lives in its own `routes/*.py`
-file, which calls into `services/*.py` for anything touching a database,
-external API, or the filesystem - so a route file is just "parse the
-request → call a service → shape the JSON response," nothing else.
+    C->>P: original audio bytes + filename
+    P->>G: Whisper (whisper-large-v3-turbo) on the ORIGINAL audio
+    G-->>P: transcript
+    P->>G: title (openai/gpt-oss-20b, first 1500 chars)
+    G-->>P: 3-7 word title, or failure → None (logged as [titling])
+    P->>F: re-encode → mono MP3, 32 kbps
+    F-->>P: compressed bytes
+    P->>T: put notes/{uuid}.mp3 (compressed only)
+    P->>DB: insert (transcript, title, audio_key, created_at)
+    P-->>C: note + fresh presigned playback URL (1 h)
+```
 
-- **`routes/pages.py`** - no auth. Serves the *compiled* React app: `/`
-  and each screen URL (`/tasks`, `/tasks/<id>`, `/time-log`, `/notes`,
-  `/notes/<id>`, `/canvas`, `/integrations/<name>`, `/settings`, `/more`)
-  → its `index.html`; `/app/assets/*` → its built files; and 301-redirects
-  the migration-era `/app` URLs to the same path without `/app`. Only that explicit list of page URLs returns HTML, so
-  unknown URLs (including unknown `/api/*` paths) still get the JSON 404.
-  These are static files; nothing sensitive lives here, which is why
-  they're not behind `require_key`.
-- **`routes/tasks.py`** - the Watch-facing `/toggle` (Start/End a task) and
-  `/status`, plus `/api/logs` (list) and `/api/logs/{id}` (get/edit/delete
-  one task) for the webpage's bento-card grid and detail view.
-- **`routes/canvas.py`** - `GET`/`PUT /api/canvas`, so the tldraw canvas
-  persists server-side instead of being stuck in one browser's local storage.
-- **`routes/notes.py`** - the voice-notes API (`GET/POST /api/notes`,
-  `PATCH /api/notes/{id}` to rename a note's title, `DELETE /api/notes/{id}`).
-- **`routes/telegram.py`** - the Telegram channel, for sending voice notes
-  to the server from the phone. Bot webhook handler (`POST /telegram/webhook`:
-  voice note in → `save_voice_note()` → "Saved ✅" reply),
-  pairing code generation (`POST /api/channels/telegram/link`), and test outbound
-  message trigger (`POST /api/channels/test`).
+- The original upload is only ever in memory; only the compressed copy is
+  stored.
+- Transcription, compression, upload or DB failure → the request fails
+  with a clear message and nothing is half-saved. A **title** failure
+  never fails the save; the UI falls back to the transcript's first words.
+- `POST /api/notes` does all of this in one request, which is why
+  gunicorn's timeout is 120 s.
+- Telegram adds: secret-header check, skip duplicate `update_id`s, only
+  linked chats accepted, then the bot replies "Saved ✅" with the title.
 
-**Every data route is behind `services/auth.py`'s `require_key` decorator** (except
-`/telegram/webhook`, which is verified via Telegram's secret token header
-`X-Telegram-Bot-Api-Secret-Token`). It accepts the key from *either* a
-`?key=...` query param (what the Watch Shortcut sends - it has no easy way
-to set a custom header) *or* an `X-API-Key` header (what the webpage's own
-`fetch()` calls send, reading the same key out of `localStorage` that the
-canvas app also reads - same origin, so that storage is shared). If
-`API_KEY` isn't set at all (e.g. local dev), the check is skipped entirely.
+### 3.2 Starting / stopping a task
 
-### Storage: one SQLite file per feature
-`tasks.db`, `canvas.db`, `notes.db`, and `channels.db` each live on the `/data` volume, and
-each is owned by exactly one `services/*_db.py` module that's the only code
-allowed to touch it. This isn't an accident of separate features being
-built at separate times so much as a deliberate, repeated choice: tasks
-moved off a CSV file specifically because a bento-card grid and per-task
-detail page needed a **stable id** that survives edits/deletes (SQLite's
-`AUTOINCREMENT` gives that for free); canvas, notes, and channels simply followed that
-same already-established pattern rather than inventing a fourth approach.
-Nothing shares a database, so any one feature's storage could be swapped out
-(or migrated to something else entirely) without touching the others.
+```mermaid
+flowchart LR
+    W["⌚ Watch: GET /toggle?key=…"] --> T{"Open task<br/>in tasks.db?"}
+    B["🌐 Web: GET /status first,<br/>then /toggle only if the<br/>expected action matches"] --> T
+    T -- no --> S["Start: insert row<br/>{ok, action: 'Start', id, message}"]
+    T -- yes --> E["End: set end + duration<br/>{ok, action: 'End', id, message}"]
+```
 
-- **`tasks.db`** - one row per task: `id, name, start, end, duration_minutes`.
-  `end`/`duration_minutes` are `NULL` while a task is in progress.
-- **`canvas.db`** - exactly one row (`id` is `CHECK`-constrained to `1`),
-  holding the tldraw canvas's entire snapshot as a JSON blob plus
-  `updated_at`. There's only ever one canvas, so this is deliberately not a
-  "table of canvases."
-- **`notes.db`** - one row per voice note: `id, transcript, title,
-  audio_key, created_at`. `title` is nullable (added in place to older
-  databases by `ensure_notes_db()`). Notice there's no audio data and no
-  URL here - just a reference (`audio_key`) to where the real audio lives.
-- **`channels.db`** - channel connection links (`links`), single-use pairing codes
-  (`link_codes`), and idempotent webhook IDs (`seen_updates`).
+- The Watch makes one call and the server decides Start or End. It never
+  sends a name; tasks are named in the web app.
+- The web app **guards** the toggle: it checks `/status` first so a stale
+  screen or double tap can't do the opposite of what was meant, and Stop
+  never sends a name.
+- `/toggle` and `/status` are a **frozen contract** (the Shortcut can't
+  be updated with a deploy), pinned by `tests/test_watch_contract.py`.
 
-### Voice notes: audio in Tigris, not in SQLite
-The actual compressed audio bytes live in **Tigris** (Fly's S3-compatible
-object storage), accessed via `boto3` configured with `region_name="auto"`
-and `signature_version="s3v4"` (Tigris isn't AWS, so it needs SigV4 signing
-explicit - the boto3 default doesn't apply and presigned URLs would come out
-broken without it). `notes.db` stores only the object's **key**
-(`notes/<uuid>.mp3`), never a URL - `GET /api/notes` calls
-`generate_presigned_url` fresh on every request (1-hour expiry) rather than
-persisting one, because a stored "permanent" URL would just be a presigned
-link quietly going stale later.
+### 3.3 Connecting Telegram (once)
 
-The pipeline for `POST /api/notes`, in order: read the uploaded recording →
-send the **original, uncompressed** audio to Groq for transcription (best
-quality for accuracy) → ask Groq's `openai/gpt-oss-20b` for a 3-7 word
-title (`services/titling.py`; on any failure it logs a `[titling]` line and
-returns `None`, so a title never blocks the save) → re-encode the audio via
-`ffmpeg` to mono/32kbps → upload *only* the compressed version to Tigris →
-save the note row. Telegram voice notes go through exactly the same
-`save_voice_note()`. The original
-high-quality upload is never written anywhere permanent; it exists only in
-memory for the duration of the request.
+Web app → `POST /api/channels/telegram/link` → one-time code (10 min,
+single use, in `channels.db`) → `t.me/<bot>?start=<code>` link → user
+taps Start in Telegram → webhook receives `/start <code>` → chat linked
+to user 1 → bot replies "Connected ✅". Full flowcharts:
+`docs/features/messaging-channel.md`.
 
-### The two clients
-- **Apple Watch Shortcut** - a single `GET /toggle?key=...` call. One tap
-  toggles Start/End; the server decides which based on whether a task is
-  currently open. The Shortcut never sends a name (naming is webpage-only),
-  and it's the reason `/toggle` stays a plain `GET` with the key as a query
-  param instead of, say, a `POST` with a header or body.
-- **The React app** (`frontend/`, at `/`) - replaced the old single-file
-  page (`static/index.html`, no longer served at `/`) one phase at a time,
-  then cut over (`docs/features/frontend-redesign.md`). It has: the
-  app shell (sidebar / bottom nav, Light/Dark/System theme), the sign-in
-  gate (same localStorage keys and 24h expiry as the old page, so existing
-  sign-ins survived the cutover), **Home** (notes-first: a big Record
-  card, recent notes grouped by day, and a slim running-task strip with
-  Start/Stop), **Tasks** (search/filter,
-  detail with edit, reopen, delete) and **Time Log** (by day, with
-  totals) - all reading the same cached `/api/logs` list, so they can't
-  disagree - **Notes** (record from Home or Capture, AI titles you can
-  edit, search over titles and transcripts, play, delete; the recorder keeps a failed recording for Retry and the
-  player refreshes an expired playback link once), the Capture menu,
-  **Apple Watch** (API reachability and next press from `/status`, the
-  Shortcut URL, recent start/stop events), **Telegram** (connect link or
-  code, test message), Settings, desktop keyboard shortcuts,
-  and the **Canvas**, whose tldraw bundle is lazy-loaded only when
-  `/canvas` opens. Start/Stop always asks `/status` first and only then
-  calls `/toggle`, so a stale screen can't flip the Watch's task the wrong
-  way; the Watch-facing endpoints themselves are unchanged.
+---
+
+## 4. Backend (Flask)
+
+`app.py` only wires things up: it creates the app, mounts Swagger UI at
+`/docs` (from `static/openapi.yaml`), registers the blueprints, and
+returns a JSON 404 for anything unknown. Route files parse the request,
+call `services/`, and shape the JSON; all storage and external calls live
+in `services/`.
+
+| Blueprint | Endpoints | Auth |
+|---|---|---|
+| `routes/tasks.py` | `GET /toggle[?name=]`, `GET /status`, `GET /api/logs`, `GET`/`PATCH`/`DELETE /api/logs/<id>` | API key |
+| `routes/notes.py` | `GET`/`POST /api/notes`, `PATCH`/`DELETE /api/notes/<id>` | API key |
+| `routes/canvas.py` | `GET`/`PUT /api/canvas` | API key |
+| `routes/telegram.py` | `POST /telegram/webhook` | Telegram secret header |
+| | `POST /api/channels/telegram/link`, `POST /api/channels/test` | API key |
+| `routes/pages.py` | `/`, `/tasks`, `/tasks/<id>`, `/time-log`, `/notes`, `/notes/<id>`, `/canvas`, `/integrations/<name>`, `/settings`, `/more` → React `index.html`; `/app/assets/*` → built files; `/app/*` → 301 to the same path without `/app` | none (static files) |
+| Swagger UI | `/docs`, `/static/openapi.yaml` | none |
+
+**Services**
+
+| Module | Responsibility |
+|---|---|
+| `auth.py` | `require_key` decorator |
+| `tasks_db.py`, `notes_db.py`, `canvas_db.py`, `channels_db.py` | The only code that touches each SQLite file |
+| `note_pipeline.py` | `save_voice_note()` - the shared pipeline in §3.1 |
+| `transcription.py` | Groq Whisper |
+| `titling.py` | Groq title; never raises |
+| `audio_compression.py` | ffmpeg re-encode |
+| `object_storage.py` | Tigris upload/delete/presigned URLs |
+| `channels.py` | `send_to_user()` (bot test message) |
+| `telegram.py` | Bot API wrapper: `send_message`, `download_voice` |
+| `time.py`, `config.py` | `local_now()` in `TIMEZONE`; `DATA_DIR` |
+
+---
+
+## 5. Storage
+
+### SQLite - one file per feature, all on the `/data` volume
+
+| File | Table(s) | Notes |
+|---|---|---|
+| `tasks.db` | `tasks(id, name, start, end, duration_minutes)` | `end`/`duration_minutes` are NULL while running. `AUTOINCREMENT` ids are never reused. |
+| `notes.db` | `notes(id, transcript, title, audio_key, created_at)` | `title` is nullable, added in place to older databases. No audio or URLs - just the Tigris key. |
+| `canvas.db` | `canvas(id = 1, snapshot, updated_at)` | Exactly one row; the whole tldraw snapshot as JSON. |
+| `channels.db` | `links`, `link_codes`, `seen_updates` | Telegram link (user 1 ↔ chat id), one-time codes, processed webhook ids. |
+
+Each database is owned by exactly one `services/*_db.py` module, opened
+per request. `DATA_DIR` is `/data` on Fly and `.` locally - the only
+thing that differs between environments.
+
+### Tigris - audio only
+
+Key `notes/<uuid>.mp3`. boto3 with `region_name="auto"` and
+`signature_version="s3v4"` (needed for Tigris presigned URLs). Playback
+URLs are minted fresh on every `GET /api/notes`, valid for 1 hour.
+
+### Timestamps
+
+Stored as `YYYY-MM-DD HH:MM:SS` wall-clock time in `TIMEZONE`
+(`Asia/Kolkata`), with no offset. The frontend parses them by hand
+(`src/utils/time.ts`) and must use the same zone (`SERVER_TIMEZONE`).
+
+---
+
+## 6. External services
+
+| Service | Used for | Details |
+|---|---|---|
+| **Groq** | Transcription | `whisper-large-v3-turbo`, on the original audio |
+| **Groq** | Note titles | `openai/gpt-oss-20b`, `reasoning_effort="low"`, `temperature=0`, first 1500 chars; free tier |
+| **Tigris** | Audio storage | Fly's S3-compatible object storage |
+| **Telegram Bot API** | Voice notes in from the phone | Webhook (not polling) - the machine is always on |
+
+---
+
+## 7. Frontend (React)
+
+One React 19 + TypeScript app (`frontend/`), built with Vite and styled
+with Tailwind CSS v4, served by Flask at `/`. It replaced an older
+single-file page and a separate canvas app.
+
+- **Screens:** Home (notes-first: Record card, recent notes by day,
+  running-task strip), Notes, Tasks, Time Log, Canvas, Apple Watch,
+  Telegram, Settings. Sidebar on desktop, bottom nav + Capture button on
+  phones.
+- **Data:** all network calls live in `src/api/`; React Query caches
+  server data (`['tasks']`, `['notes']`, `['status']`). Home, Tasks and
+  Time Log share one task list, so they can't disagree.
+- **Recorder:** a state machine (`recorderController.ts`) in an app-wide
+  provider, so a recording keeps going across navigation and a failed
+  upload can be retried with the same audio.
+- **Canvas:** tldraw is lazy-loaded only on `/canvas`.
+- **Measured 2026-10-04 (production):** initial JS 177 KB gzipped;
+  Lighthouse mobile on Home: Performance 97, Accessibility 100.
+
+Design system, folder rules and the full screen spec:
+`docs/features/frontend-redesign.md`.
+
+---
+
+## 8. Security model
+
+- **One shared API key** (`API_KEY`, a Fly secret). Every data route
+  checks it via `require_key`, from either `?key=` (the Watch Shortcut
+  can't easily set headers) or the `X-API-Key` header (the web app). If
+  `API_KEY` is unset - local development only - the check is skipped.
+- **Web sign-in:** the key is kept in `localStorage`
+  (`task_logger_api_key`) with a 24-hour sliding expiry; any 401 signs
+  the user out.
+- **Telegram webhook:** not key-protected; verified by Telegram's
+  `X-Telegram-Bot-Api-Secret-Token` header instead. Duplicate updates are
+  ignored and unlinked chats get one "not linked" reply.
+- **Audio:** the Tigris bucket isn't public; playback uses presigned URLs
+  that expire after 1 hour.
+- **Page routes are public** - they only serve the static app; all data
+  behind them needs the key.
+- **Secrets** live only in Fly (`fly secrets set`), never in git:
+  `API_KEY`, `GROQ_API_KEY`, `AWS_ACCESS_KEY_ID`, `AWS_SECRET_ACCESS_KEY`,
+  `AWS_ENDPOINT_URL_S3`, `BUCKET_NAME`, `TELEGRAM_BOT_TOKEN`,
+  `TELEGRAM_BOT_USERNAME`, `TELEGRAM_WEBHOOK_SECRET`.
+
+---
+
+## 9. Build, CI and deploy
+
+```mermaid
+flowchart LR
+    PR["Pull request<br/>into main"] --> Test
+    Push["Push to main"] --> Test
+    Test["test job<br/>pytest · npm ci · lint<br/>vitest · tsc + vite build"]
+    Test -->|"push to main<br/>and tests pass"| Deploy["flyctl deploy --remote-only"]
+    Deploy --> S1["Docker stage 1 · node:20-slim<br/>npm ci && npm run build"]
+    S1 -->|"only frontend/dist"| S2["Docker stage 2 · python:3.12-slim<br/>ffmpeg · pip install · gunicorn<br/>app.py routes services static scripts<br/>+ dist as web_dist/"]
+    S2 --> Fly["Fly.io machine<br/>+ volume /data"]
+```
+
+- **CI** (`.github/workflows/deploy.yml`): every PR and push runs the
+  tests; only a push to `main` deploys, and only if the tests pass.
+- **Two-stage Docker build:** Node and the frontend sources never reach
+  the production image - only the compiled JS/CSS does.
+- **Fly runtime** (`fly.toml`): one machine in `sin`,
+  `min_machines_running = 1`, `auto_stop_machines = false` (no cold
+  starts; the Telegram webhook can always reach it), `force_https`,
+  volume `task_data` at `/data`, `TIMEZONE=Asia/Kolkata`.
+- **gunicorn:** 1 worker, `--timeout 120`.
+- **Maintenance scripts** (`scripts/`) ship in the image and run with
+  `fly ssh console -C "python scripts/<name>.py"`.
+
+---
+
+## 10. Design decisions
+
+| Decision | Why |
+|---|---|
+| One SQLite file per feature | Each feature's storage stays simple and swappable; tasks moved off CSV only to get stable ids, and later features followed the same pattern. |
+| Audio in Tigris, only the key in SQLite | Keeps the databases tiny; presigned URLs expire, so storing them would just store links that go stale. |
+| Transcribe the original, store the compressed copy | Best transcription accuracy, smallest storage. |
+| Title never blocks a save | Titles are nice-to-have; a Groq hiccup shouldn't lose a note. Failures are logged, not silent. |
+| Inline pipeline, no job queue | Whisper + a small title call + ffmpeg fit in one request; simpler than a queue for one user. |
+| `GET /toggle` with `?key=` | What the Watch Shortcut can do in one tap; the contract is frozen. |
+| Guarded toggle in the web app | `/toggle` flips state blindly; checking `/status` first prevents wrong-way presses. |
+| Fixed page-route list, no catch-all | Unknown URLs (incl. `/api/*`) keep returning JSON 404s, which the Watch relies on. |
+| Telegram via webhook, Python in the same app | One deploy; reuses the notes pipeline directly. |
+| Two-stage Docker build | No Node toolchain in the production image. |
+| Single user, shared key | It's a personal tool; accounts add complexity with no benefit. |
+
+---
+
+## 11. Known limitations
+
+- **One gunicorn worker:** while a voice note is being processed (up to
+  2 minutes), other requests - including a Watch tap - wait.
+- **One canvas, last write wins.** No versioning or merge.
+- **A 401 during a voice-note upload signs you out and loses the
+  recording** - tracked in `TODO.md` §3.
+- **Groq free tier** limits apply (e.g. 30 title requests/min).
+- **Single user by design** - every Telegram link and all data belong to
+  one person.

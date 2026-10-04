@@ -18,9 +18,9 @@ Sheev is live on Fly.io and used daily. Voice notes are its main job
 (record in the web app or send to the Telegram bot → Whisper transcript +
 AI title → stored); time tracking (Apple Watch one-tap + web) is the
 secondary job; the canvas is a side tool. The frontend redesign has
-replaced the old page and is served at `/`. What's left is **finishing
-work** (wrap-up for the portfolio, formal sign-off of the redesign, a few
-known bugs). No new features are planned right now. The app is
+replaced the old page, is served at `/`, and is signed off. What's left
+is **finishing work**: the portfolio wrap-up, deleting the old page, and
+a few known bugs. No new features are planned right now. The app is
 single-user (Vivek only) by design.
 
 ---
@@ -50,13 +50,11 @@ recruiters. Do these in order.
       history, CORS/headers, what an unauthenticated visitor can reach.
       Write the findings into a short `docs/SECURITY.md`; fix anything
       serious as bug fixes.
-- [ ] **README.md** at the repo root: what Sheev is, a screenshot or GIF,
-      the stack, the architecture diagram (link `ARCHITECTURE.md`), how
-      to run it locally, how it's deployed. Highlight the
-      Whisper + LLM-titling pipeline (using models to build a real
-      solution).
-- [ ] **LICENSE** - MIT.
-- [ ] **Loom walkthrough** (short) - link it from the README.
+- [x] **README.md** at the repo root: what Sheev is, features, stack,
+      a diagram (links `ARCHITECTURE.md`), running locally, env vars,
+      tests, deployment. *(2026-10-04)* Still to add: a screenshot or GIF.
+- [x] **LICENSE** - MIT. *(2026-10-04)*
+- [ ] **Loom walkthrough** (short) - add the link to the README.
 - [ ] Then: add Sheev to the resume.
 
 ## 2. Next - finish and sign off the frontend redesign
@@ -64,8 +62,8 @@ recruiters. Do these in order.
 All screens are built, merged and working well: Vivek has used the app
 on his desktop and iPhone and signed off the UI/UX, canvas included
 (2026-10-04), and it passed the bundle and Lighthouse checks. What's left
-is removing the old page. Details in `docs/features/frontend-redesign.md` (Status
-block at the top, §10 and §13).
+is removing the old page. Details in `docs/features/frontend-redesign.md`
+(Status block at the top, §10 and §13).
 
 - [x] **Parity walk-through** (§13 Parity + New experience): checked in
       daily use on desktop and iPhone against production data.
@@ -89,6 +87,14 @@ block at the top, §10 and §13).
 - [ ] **A 401 during a voice-note upload signs you out and the recording
       is lost.** It should keep the recording so it can be retried after
       signing back in. *(highest priority)*
+- [ ] **Keep all `.db` files in one folder.** Locally, `DATA_DIR`
+      defaults to `.` (`services/config.py`), so `tasks.db`, `notes.db`,
+      `canvas.db` and `channels.db` land scattered in the repo root.
+      Default it to a single folder (e.g. `data/`), gitignore and
+      dockerignore that folder, and move the existing local files into
+      it. Production is unaffected (`DATA_DIR=/data` on Fly). Update
+      `PROJECT_STRUCTURE.md`, `ARCHITECTURE.md` and the README in the
+      same change.
 - [ ] **Groq/Tigris success paths were only verified with a stub
       harness** - covered in practice now that notes and titles work in
       production, but there's no automated test for them.

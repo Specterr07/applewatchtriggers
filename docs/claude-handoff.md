@@ -46,7 +46,7 @@ every push to `main`.
 | Voice notes, Telegram, tasks, canvas | ✅ Shipped, in daily use | `docs/plans/*`, `docs/features/messaging-channel.md` |
 | Notes-first Home + AI titles | ✅ Shipped 2026-10-04, backfill done | `docs/features/notes-first-ai-titles.md` |
 | Frontend redesign | Built, merged and live at `/`; **UI/UX and canvas signed off 2026-10-04** (desktop + iPhone). Bundle and Lighthouse checks passed (Performance 97, Accessibility 100). Only `static/index.html` deletion left | `docs/features/frontend-redesign.md` (Status block at top) |
-| Wrap-up for portfolio | Not started: 401 bug fix, security review, README, MIT license, Loom video | `TODO.md` §1 |
+| Wrap-up for portfolio | README + MIT license done (2026-10-04). Left: 401 bug fix, security review, Loom video | `TODO.md` §1 |
 
 ## 4. Rules that matter most
 
