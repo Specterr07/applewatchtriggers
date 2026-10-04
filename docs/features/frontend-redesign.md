@@ -1,6 +1,6 @@
 # Frontend redesign
 
-**Status:** 3. Build - built, merged and live at `/`; UI/UX and canvas signed off and bundle checks passed 2026-10-04; Lighthouse run and deleting the old page still open  <!-- 1. Think → 2. Draw → 🔒 Locked → 3. Build → ✅ Shipped -->
+**Status:** 3. Build - built, merged and live at `/`; UI/UX, canvas, bundle and Lighthouse all signed off 2026-10-04; only deleting the old page is left  <!-- 1. Think → 2. Draw → 🔒 Locked → 3. Build → ✅ Shipped -->
 
 *Started 2026-09-30. Based on the Phase 0 repository audit (same date).*
 
@@ -16,9 +16,9 @@
 > | Phase 7 - canvas review in the finished shell | ✅ Done 2026-10-04 - working fine |
 > | §13 parity walk-through (Parity + New experience) | ✅ Done 2026-10-04 - Vivek, daily use on desktop and iPhone |
 > | Bundle checks (§13 Quality) | ✅ Passed 2026-10-04 - initial JS 177 KB gzipped (budget 250 KB); tldraw only in the lazy `CanvasPage` chunk |
-> | Lighthouse + time spot-check (§13 Quality) | Not started |
+> | Lighthouse, mobile, Home (§13 Quality) | ✅ Passed 2026-10-04 - Performance 97, Accessibility 100 |
 >
-> To mark this ✅ Shipped: run Lighthouse (mobile, Home), then delete
+> To mark this ✅ Shipped: delete
 > `static/index.html`. Tracked in `TODO.md` §2; known bugs in `TODO.md` §3.
 >
 > **Superseded by a later feature** (`docs/features/notes-first-ai-titles.md`,
@@ -748,7 +748,7 @@ flowchart LR
 **M4 — Polish**
 - [x] Watch screen, Settings, keyboard shortcuts, dark mode check,
       empty/loading/error states on every screen.
-- [ ] Performance and accessibility checks from §13.
+- [x] Performance and accessibility checks from §13. *(2026-10-04: bundle 177 KB gzipped; Lighthouse 97 / 100.)*
 
 **M5 — Cutover** (one commit)
 - [x] Walk through the parity checklist (§13) on a real phone and a
@@ -959,12 +959,15 @@ finished shell, plus any adjustments that come out of it.
       `index-*.js` 177 KB gzipped / 200 KB as served; `CanvasPage-*.js`
       438 KB gzipped, only reachable through a dynamic import, not
       preloaded.)*
-- [ ] Lighthouse mobile Performance ≥ 85 and Accessibility ≥ 95 on Home.
+- [x] Lighthouse mobile Performance ≥ 85 and Accessibility ≥ 95 on Home.
+      *(2026-10-04: Performance 97, Accessibility 100.)*
 - [x] vitest passes (time utils, recorder transitions); pytest passes
       (Watch contract, routing); CI blocks deploys when tests fail.
       *(CI gates every deploy; 47 pytest / 66 vitest on 2026-10-03.)*
-- [ ] Engineering rules in §8.2 are followed (no `fetch` outside
+- [x] Engineering rules in §8.2 are followed (no `fetch` outside
       `src/api/`; file size and error handling as described there).
+      *(2026-10-04: checked - no `fetch`/`XMLHttpRequest` anywhere outside
+      `frontend/src/api/`.)*
 - [ ] Times shown match the old app for the same tasks (spot-check 5).
 
 **Cutover**
