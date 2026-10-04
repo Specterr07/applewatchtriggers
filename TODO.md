@@ -63,8 +63,7 @@ recruiters. Do these in order.
 
 All screens are built, merged and working well: Vivek has used the app
 on his desktop and iPhone and signed off the UI/UX, canvas included
-(2026-10-04). What's left is the measured performance check and removing
-the old page. Details in `docs/features/frontend-redesign.md` (Status
+(2026-10-04). What's left is a Lighthouse run and removing the old page. Details in `docs/features/frontend-redesign.md` (Status
 block at the top, §10 and §13).
 
 - [x] **Parity walk-through** (§13 Parity + New experience): checked in
@@ -72,9 +71,15 @@ block at the top, §10 and §13).
       *(2026-10-04)*
 - [x] **Phase 7 - canvas review** inside the new shell - working fine.
       *(2026-10-04)*
-- [ ] **Performance & accessibility check** (§13 Quality): initial JS
-      ≤ 250 KB gzipped, tldraw chunk not loaded on Home, Lighthouse mobile
-      Performance ≥ 85 / Accessibility ≥ 95.
+- [x] **Bundle check** (§13 Quality), measured on production
+      2026-10-04: initial JS **177 KB gzipped** (200 KB as served by Fly),
+      budget 250 KB. tldraw is its own lazy chunk (`CanvasPage-*.js`,
+      438 KB gzipped) - not preloaded and not referenced by the main
+      bundle except as a dynamic import, so it only loads on `/canvas`.
+- [ ] **Lighthouse** (mobile, on Home): Performance ≥ 85 /
+      Accessibility ≥ 95. Run it yourself in Chrome DevTools → Lighthouse
+      → Mobile, signed in, on `/`. (Agents can't reach the production
+      site from their sandbox.)
 - [ ] **Delete `static/index.html`** - unblocked now that parity is
       signed off (keep `static/openapi.yaml`). Update `PROJECT_STRUCTURE.md`,
       `ARCHITECTURE.md` and `docs/STANDARDS.md` in the same commit.
