@@ -78,8 +78,6 @@ block at the top, §10 and §13).
 - [ ] **Delete `static/index.html`** - unblocked now that parity is
       signed off (keep `static/openapi.yaml`). Update `PROJECT_STRUCTURE.md`,
       `ARCHITECTURE.md` and `docs/STANDARDS.md` in the same commit.
-- [ ] Phases 8-10 (real-time UX polish, demo) - only what's still worth
-      doing after the wrap-up; the Loom video above covers "demo".
 
 ## 3. Known bugs & small fixes (no feature file needed)
 

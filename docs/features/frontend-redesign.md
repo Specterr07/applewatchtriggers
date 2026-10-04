@@ -16,7 +16,6 @@
 > | Phase 7 - canvas review in the finished shell | ✅ Done 2026-10-04 - working fine |
 > | §13 parity walk-through (Parity + New experience) | ✅ Done 2026-10-04 - Vivek, daily use on desktop and iPhone |
 > | Perf/a11y checks (§13 Quality: bundle size, Lighthouse, time spot-check) | Not started |
-> | Phases 8-10 - real-time UX, polish, demo | Not started; demo is covered by the Loom video in `TODO.md` §1 |
 >
 > To mark this ✅ Shipped: do the perf/a11y checks, then delete
 > `static/index.html`. Tracked in `TODO.md` §2; known bugs in `TODO.md` §3.
@@ -778,7 +777,7 @@ gets reviewed visually after each milestone.
 | 5 | Voice Notes → **STOP for review** | M3: recorder, Notes list/detail |
 | 6 | Apple Watch + integrations/settings → **STOP for review** | M3: Telegram; M4: Watch, Settings |
 | 7 | Canvas → **STOP for review** | Canvas in the finished shell (see note) |
-| 8–10 | Real-time UX, production polish, portfolio/demo | M4: shortcuts, dark mode, performance, accessibility. Proceed step by step, with review where appropriate. M5 cutover still needs the parity checklist. |
+| ~~8–10~~ | ~~Real-time UX, production polish, portfolio/demo~~ | **Removed from scope 2026-10-04** (see Decisions). The perf checks and the M5 cutover still apply. |
 
 *Note:* M0 (tests + CI gate) comes before Phase 2 and has no visual
 checkpoint, but its tests must pass. The canvas **route move** stays in M1,
@@ -910,6 +909,9 @@ finished shell, plus any adjustments that come out of it.
 - **`static/index.html` kept after the cutover** (no longer served at `/`)
   until the cutover is reviewed; deleted after the §13 parity walk-through.
   *(2026-09-30)*
+- **Phases 8-10 (real-time UX, production polish, demo) removed from
+  scope.** The app is already working well on desktop and iPhone; the
+  demo is covered by the Loom walkthrough in `TODO.md` §1. *(2026-10-04)*
 - **AA contrast check dropped from the Definition of Done.** The design
   tokens (§7.1) were chosen for AA; a measured check isn't worth the time
   for a personal tool. The known ~4.2:1 primary-button hover is accepted.
