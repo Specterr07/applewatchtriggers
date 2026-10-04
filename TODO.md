@@ -89,13 +89,6 @@ block at the top, §10 and §13).
 - [ ] **A 401 during a voice-note upload signs you out and the recording
       is lost.** It should keep the recording so it can be retried after
       signing back in. *(highest priority)*
-- [ ] **No build version in Settings.** Spec §5.3 asks for the build
-      commit, but nothing records one (the Docker context excludes
-      `.git`). Needs a build arg passed from CI. See the comment in
-      `frontend/src/features/settings/`.
-- [ ] **Decide React Query `staleTime`** (`frontend/src/api/queryClient.ts`,
-      currently 15s): focus-driven refetches were seen every ~18s; raising
-      it to 60s is the open option.
 - [ ] **Groq/Tigris success paths were only verified with a stub
       harness** - covered in practice now that notes and titles work in
       production, but there's no automated test for them.

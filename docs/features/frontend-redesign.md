@@ -913,6 +913,11 @@ finished shell, plus any adjustments that come out of it.
 - **Phases 8-10 (real-time UX, production polish, demo) removed from
   scope.** The app is already working well on desktop and iPhone; the
   demo is covered by the Loom walkthrough in `TODO.md` §1. *(2026-10-04)*
+- **Dropped from scope:** the "times match the old app" spot-check (the
+  old page is no longer used, and times look right in daily use); the
+  build commit in Settings (§5.3 - not worth a CI build arg for a personal
+  tool); and the React Query `staleTime` question (stays at 15s).
+  *(2026-10-04)*
 - **AA contrast check dropped from the Definition of Done.** The design
   tokens (§7.1) were chosen for AA; a measured check isn't worth the time
   for a personal tool. The known ~4.2:1 primary-button hover is accepted.
@@ -968,7 +973,8 @@ finished shell, plus any adjustments that come out of it.
       `src/api/`; file size and error handling as described there).
       *(2026-10-04: checked - no `fetch`/`XMLHttpRequest` anywhere outside
       `frontend/src/api/`.)*
-- [ ] Times shown match the old app for the same tasks (spot-check 5).
+- ~~Times shown match the old app for the same tasks (spot-check 5).~~
+  *(Dropped 2026-10-04 - see Decisions.)*
 
 **Cutover**
 - [ ] App served at `/`; `/app/*` 301-redirects; `static/index.html`
