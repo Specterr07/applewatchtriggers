@@ -2,9 +2,8 @@
 
 This reflects what's actually in the repo right now: `Dockerfile`, `app.py`,
 `routes/`, `services/`, `frontend/`, `fly.toml`, `.github/workflows/`. No
-aspirational or planned pieces are included here - see
-`FUTURE_ARCHITECTURE.md` for the (deferred) multi-user picture and `TODO.md`
-for what's coming. Last checked against the code: 2026-10-04.
+aspirational or planned pieces are included here - see `TODO.md` for
+what's coming. Last checked against the code: 2026-10-04.
 
 ```mermaid
 flowchart TB

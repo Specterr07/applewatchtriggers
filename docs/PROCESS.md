@@ -26,6 +26,5 @@ and fill in step 1. When it ships, set its Status to ✅ Shipped and
 update `TODO.md` and `docs/claude-handoff.md` in the same change.
 
 (The older `docs/plans/PLAN_*.md` files are features from before this
-process — same idea, less structure. A plan that hasn't been built yet,
-like `PLAN_MULTI_USER.md`, moves into a new `docs/features/` file when
-work on it starts.)
+process — same idea, less structure. All of them are shipped; new
+work always starts in `docs/features/`.)

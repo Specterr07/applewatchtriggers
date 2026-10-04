@@ -104,8 +104,7 @@ Not in this feature:
 - **Editing transcripts**, note titles, or note search on the server
   (in-browser search over loaded notes *is* in scope).
 - **Offline mode / PWA / push notifications.**
-- **Multi-user accounts.** Still the single shared API key
-  (`docs/plans/PLAN_MULTI_USER.md` remains deferred).
+- **Multi-user accounts.** Still the single shared API key.
 - **Upgrading tldraw** or changing how the canvas is stored.
 - **Charts or analytics** beyond the Home stats listed in §5.2.
 

@@ -25,13 +25,14 @@ every push to `main`.
 - **Second job - time tracking.** An Apple Watch Shortcut (one tap,
   `GET /toggle`) or the web app starts/stops a task (`tasks.db`).
 - **Side tool - canvas.** A tldraw canvas saved server-side.
-- **Single user.** One shared `API_KEY`; multi-user is deferred.
+- **Single user, by design.** One shared `API_KEY`; multi-user accounts
+  are not on the roadmap.
 
 ## 2. Reading order
 
 1. **This file.**
-2. **`TODO.md`** - the roadmap & backlog: shipped, now, next, bugs, later,
-   deferred, dropped. Pick work from here.
+2. **`TODO.md`** - the roadmap & backlog: shipped, now, next, bugs,
+   ideas, dropped. Pick work from here.
 3. **`CLAUDE.md`** - standing rules (feature process, keep docs in sync).
 4. **`PROJECT_STRUCTURE.md`** - what every file/folder/route is for.
 5. **`ARCHITECTURE.md`** - how the deployed pieces fit together.
@@ -46,7 +47,6 @@ every push to `main`.
 | Notes-first Home + AI titles | ✅ Shipped 2026-10-04, backfill done | `docs/features/notes-first-ai-titles.md` |
 | Frontend redesign | Built, merged and live at `/`; **formal sign-off not done** (parity walk-through, canvas review, perf/a11y checks, delete `static/index.html`) | `docs/features/frontend-redesign.md` (Status block at top) |
 | Wrap-up for portfolio | Not started: 401 bug fix, security review, README, MIT license, Loom video | `TODO.md` §1 |
-| Multi-user pivot | Deferred on purpose - built last | `docs/plans/PLAN_MULTI_USER.md`, `FUTURE_ARCHITECTURE.md` |
 
 ## 4. Rules that matter most
 

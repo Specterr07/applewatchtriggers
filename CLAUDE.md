@@ -4,7 +4,7 @@
 
 Read `docs/claude-handoff.md` first - it says where the project stands,
 the reading order, and the rules that matter most. The roadmap and
-backlog (what's shipped, next, buggy, deferred or dropped) is `TODO.md`.
+backlog (what's shipped, next, buggy, ideas or dropped) is `TODO.md`.
 Don't rely on earlier chat context; the repo is the source of truth.
 
 ## Follow the feature process (docs/PROCESS.md)

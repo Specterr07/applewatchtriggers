@@ -22,7 +22,7 @@ something I said on Monday).
 - WhatsApp - **dropped entirely** (see Decisions, 2026-10).
 - *When* the server messages me (e.g. reminders) — that's for a later
   feature. Here I just prove the pipe with a test message.
-- User accounts — that's the multi-user feature, which comes last.
+- User accounts — the app is single-user.
 
 **Options I looked at:**
 | Option | Good | Bad |

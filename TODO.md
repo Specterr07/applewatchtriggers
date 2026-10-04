@@ -20,8 +20,8 @@ AI title → stored); time tracking (Apple Watch one-tap + web) is the
 secondary job; the canvas is a side tool. The frontend redesign has
 replaced the old page and is served at `/`. What's left is **finishing
 work** (wrap-up for the portfolio, formal sign-off of the redesign, a few
-known bugs). No new features are planned right now; the multi-user
-pivot is deferred until last.
+known bugs). No new features are planned right now. The app is
+single-user (Vivek only) by design.
 
 ---
 
@@ -98,18 +98,7 @@ block at the top, §10 and §13).
 - [ ] **Docker build not verified locally** (no Docker on the Mac). Fly's
       remote builder builds it fine; low priority.
 
-## 4. Deferred on purpose
-
-### Multi-user pivot - `docs/plans/PLAN_MULTI_USER.md`
-Built **last**, after everything above; the app stays Vivek-only until
-then. Decided in outline (email/password accounts, per-user data in every
-database, per-user usage/cost metrics, Apple Push dropped). Its open
-technical questions (auth mechanics, SQLite vs. Postgres, isolation
-mechanism, metrics, migrating today's data to "user #1", Telegram
-account-linking, Web Push) are tracked in the plan file and in
-`FUTURE_ARCHITECTURE.md`. Nothing to do on it now.
-
-## 5. Ideas - only being thought about
+## 4. Ideas - only being thought about
 
 Not on the roadmap. Promote to a feature file only if it becomes a real
 plan.
@@ -119,17 +108,20 @@ plan.
   (~30-60s per note is acceptable). Not decided how it would connect to
   the Fly server.
 
-## 6. Dropped - don't build these
+## 5. Dropped - don't build these
 
 - **WhatsApp channel** - dropped entirely. Telegram is the only messaging
   channel. (Reason: WhatsApp only allows free messages within 24h of the
   user writing, needs Meta business verification and costs per message -
   see `docs/features/messaging-channel.md`.)
-- **Apple Push notifications** - dropped in favour of Telegram (and, in
-  the multi-user future, Web Push).
+- **Apple Push notifications** - dropped in favour of Telegram.
 - **Reminders (LLM tool-calling)** - removed from the roadmap
   2026-10-04. Not planned. If it comes back, plan it from scratch as a
   new `docs/features/` file (the old notes are in git history).
+- **Multi-user accounts** - removed from the roadmap 2026-10-04. The app
+  stays single-user with one shared `API_KEY`. If it comes back, plan it
+  from scratch as a new `docs/features/` file (the old plan and future
+  architecture diagram are in git history).
 - **Planner** - removed earlier (see git history).
 - **Kanban, projects, tags, due dates, linking notes to tasks** - out of
   scope (redesign non-goals); a task is a timed session, not a to-do.

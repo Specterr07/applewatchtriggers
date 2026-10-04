@@ -31,9 +31,9 @@ Our root directory maintains a strict separation of concerns to avoid clutter:
 - `static/`: `openapi.yaml`, plus the old webpage file (`index.html`), no longer served at `/` and pending deletion.
 - `docs/`: All documentation, planning records, and architectural diagrams.
   - `docs/claude-handoff.md`: The entry point for any agent - current state, reading order, key rules.
-  - `docs/plans/`: Older `PLAN_*.md` decision records for shipped and not-yet-built features (from before `PROCESS.md`).
+  - `docs/plans/`: Older `PLAN_*.md` decision records for shipped features (from before `PROCESS.md`).
   - `docs/features/`: One file per feature, following `PROCESS.md` (Think → Draw → 🔒 Locked → Build → ✅ Shipped). New features always start here.
-- Root status docs: `TODO.md` (roadmap & backlog), `ARCHITECTURE.md` (what's deployed), `FUTURE_ARCHITECTURE.md` (deferred multi-user picture), `PROJECT_STRUCTURE.md` (every path explained).
+- Root status docs: `TODO.md` (roadmap & backlog), `ARCHITECTURE.md` (what's deployed), `PROJECT_STRUCTURE.md` (every path explained).
 
 ## 3. General Principles
 - **Keep route handlers lean:** `routes/*.py` should only handle request parsing, calling services, and returning JSON. All database/external logic belongs in `services/`.
