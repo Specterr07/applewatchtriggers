@@ -99,8 +99,6 @@ block at the top, §10 and §13).
 - [ ] **Groq/Tigris success paths were only verified with a stub
       harness** - covered in practice now that notes and titles work in
       production, but there's no automated test for them.
-- [ ] **Docker build not verified locally** (no Docker on the Mac). Fly's
-      remote builder builds it fine; low priority.
 
 ## 4. Ideas - only being thought about
 
