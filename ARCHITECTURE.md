@@ -170,7 +170,9 @@ request → call a service → shape the JSON response," nothing else.
   persists server-side instead of being stuck in one browser's local storage.
 - **`routes/notes.py`** - the voice-notes API (`GET/POST /api/notes`,
   `PATCH /api/notes/{id}` to rename a note's title, `DELETE /api/notes/{id}`).
-- **`routes/telegram.py`** - Telegram bot webhook handler (`POST /telegram/webhook`),
+- **`routes/telegram.py`** - the Telegram channel, for sending voice notes
+  to the server from the phone. Bot webhook handler (`POST /telegram/webhook`:
+  voice note in → `save_voice_note()` → "Saved ✅" reply),
   pairing code generation (`POST /api/channels/telegram/link`), and test outbound
   message trigger (`POST /api/channels/test`).
 

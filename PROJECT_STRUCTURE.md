@@ -17,10 +17,12 @@ A small **Flask** app ("Sheev") that does four things:
    object storage plus the transcript and title in SQLite (`notes.db`). The
    original high-quality upload is never kept. Notes are the app's main job:
    Home is notes-first.
-4. **Messaging Channel (Telegram)** — connect Telegram via deep-linking;
-   send voice notes directly to the Telegram bot to have them transcribed
-   and stored into `notes.db` like web notes, or receive messages from the
-   server (`send_to_user`). State and links live in SQLite (`channels.db`).
+4. **Telegram channel** — a way to send voice notes to the server from
+   the phone. Connect Telegram once via a deep link; then any voice note
+   sent to the bot is transcribed, titled and stored in `notes.db` exactly
+   like a web note, and the bot replies "Saved ✅" with the title. A "Send
+   test message" button checks the link. State and links live in SQLite
+   (`channels.db`).
 
 It is deployed to **Fly.io**, and the deploy runs automatically from GitHub
 Actions on every push to `main`.
@@ -139,8 +141,9 @@ Incoming voice notes from Telegram are downloaded, passed through the shared
 compression + Tigris upload), and stored into `notes.db`. The bot's reply
 shows the title.
 
-Outbound messages are routed via `services/channels.py:send_to_user`, which
-currently sends messages through `services/telegram.py`. Requires
+The only outbound messages are the bot's replies and the "Send test message"
+button, which goes through `services/channels.py:send_to_user` →
+`services/telegram.py`. The server doesn't message the user on its own. Requires
 `TELEGRAM_BOT_TOKEN`, `TELEGRAM_BOT_USERNAME`, and `TELEGRAM_WEBHOOK_SECRET`
 set as Fly secrets / environment variables.
 

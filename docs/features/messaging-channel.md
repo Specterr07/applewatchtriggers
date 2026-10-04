@@ -2,32 +2,39 @@
 
 **Status:** ✅ Shipped  <!-- 1. Think → 2. Draw → 🔒 Locked → 3. Build → ✅ Shipped -->
 
+> **What this is for:** Telegram is a **channel for me to send voice notes
+> to the server** from my phone, without opening the web app. That's its
+> whole job. The bot's replies ("Saved ✅" + title) and the "Send test
+> message" button are small supporting pieces, not a feature for the
+> server to message me. *(Clarified 2026-10-04.)*
+
 ---
 
 ## 1. Think
 
-**Problem:** Voice notes can only be recorded in the web app, and the
-server has no way to message me later (e.g. a reminder on Thursday for
-something I said on Monday).
+**Problem:** Voice notes can only be recorded in the web app. I want to
+capture a thought from my phone the quickest way possible: send a voice
+note in a chat app and have it land in Sheev like any other note.
 
 **Building:**
 - Send a voice note in Telegram → it goes through the existing notes
-  pipeline (transcribe → compress → store).
-- The server can send me a message any time.
+  pipeline (transcribe → compress → store) and shows up in Notes.
+- The bot replies so I know it worked ("Saved ✅" or what went wrong).
 - Connect my Telegram once, by tapping a link. Never again.
+- A "Send test message" button, so I can check the link works.
 - Keep Telegram-specific code in one place, so another channel could
   be added later without touching the rest.
 
 **Not building:**
 - WhatsApp - **dropped entirely** (see Decisions, 2026-10).
-- *When* the server messages me (e.g. reminders) — that's for a later
-  feature. Here I just prove the pipe with a test message.
+- The server messaging me on its own (alerts, reminders, digests). Not
+  planned; `send_to_user()` only exists for the test button.
 - User accounts — the app is single-user.
 
 **Options I looked at:**
 | Option | Good | Bad |
 |--------|------|-----|
-| **Telegram** | Free. One bot serves everyone. Can message any time. Voice notes built in. | Fewer people use it than WhatsApp. |
+| **Telegram** | Free. Voice notes built in. Simple bot API and webhooks. | Fewer people use it than WhatsApp. |
 | **WhatsApp** | Everyone has it. | Can only message freely within 24h of the user writing to you; after that, pre-approved templates only, paid per message. Needs Meta business verification and a separate phone number. |
 
 **Open questions:** *(all answered 2026-09-19)*
@@ -86,7 +93,7 @@ The note then shows up in the Notes tab like any other.
 
 ```mermaid
 flowchart TD
-    A["Something wants to message me<br/>(for now: a 'Send test message' button;<br/>later: any feature that needs it)"] --> B["send_to_user(user 1, text)"]
+    A["Something wants to message me<br/>(only the 'Send test message' button uses this)"] --> B["send_to_user(user 1, text)"]
     B --> C{"Does user 1 have<br/>a linked channel?"}
     C -- no --> D["Return error: 'No channel linked'"]
     C -- yes --> E["Pick the right sender for that channel<br/>(only Telegram for now)"]
@@ -183,11 +190,14 @@ once when registering the webhook).
 | Bot token leaks | Revoke it in BotFather, set the new one as a Fly secret |
 
 ### Decisions
-- **Telegram first, WhatsApp maybe later.** The whole point is sending
-  reminders later, and WhatsApp makes that hard and paid. Revisit if
-  real users ask for WhatsApp. *(2026-09-19)*
+- **Telegram first, WhatsApp maybe later.** At the time, the plan also
+  included the server messaging me later, which WhatsApp makes hard and
+  paid. Revisit if real users ask for WhatsApp. *(2026-09-19)*
 - **WhatsApp dropped entirely.** Telegram is the only messaging channel.
   *(2026-10)*
+- **Purpose is voice notes in, nothing more.** The server-messages-me
+  idea (reminders) is off the roadmap, so the outbound side stays as it
+  is: bot replies plus the test button. *(2026-10-04)*
 - **The Connect / Test buttons moved** from the old page's Notes tab to
   the React app's Telegram screen (`/integrations/telegram`) in the
   frontend redesign. Same API. *(2026-09-30)*

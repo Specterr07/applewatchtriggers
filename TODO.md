@@ -32,7 +32,7 @@ single-user (Vivek only) by design.
 | Named tasks + bento cards + task detail | `docs/plans/PLAN_NAMED_TASKS_BENTO_CARDS.md` | before 2026-09 |
 | Server-side canvas persistence | `docs/plans/PLAN_CANVAS_SAVE.md` | before 2026-09 |
 | Voice notes (record → transcribe → compress → store) | `docs/plans/PLAN_VOICE_NOTES.md` | before 2026-09 |
-| Telegram channel (voice notes in, messages out) | `docs/features/messaging-channel.md` | 2026-09 |
+| Telegram channel (send voice notes to the server from the phone) | `docs/features/messaging-channel.md` | 2026-09 |
 | Frontend redesign, phases M0-M4 + cutover to `/` | `docs/features/frontend-redesign.md` | 2026-09-30 (PRs #1-#4) |
 | Notes-first Home + AI note titles (+ backfill) | `docs/features/notes-first-ai-titles.md` | 2026-10-04 (PRs #5, #6) |
 
