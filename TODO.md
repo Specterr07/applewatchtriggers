@@ -20,8 +20,8 @@ AI title → stored); time tracking (Apple Watch one-tap + web) is the
 secondary job; the canvas is a side tool. The frontend redesign has
 replaced the old page and is served at `/`. What's left is **finishing
 work** (wrap-up for the portfolio, formal sign-off of the redesign, a few
-known bugs), then **one new feature (Reminders)** that hasn't been
-planned yet, then the deferred multi-user pivot.
+known bugs). No new features are planned right now; the multi-user
+pivot is deferred until last.
 
 ---
 
@@ -98,21 +98,7 @@ block at the top, §10 and §13).
 - [ ] **Docker build not verified locally** (no Docker on the Mac). Fly's
       remote builder builds it fine; low priority.
 
-## 4. Later - needs planning before any code
-
-### Reminders (LLM tool-calling) - `docs/plans/PLAN_LLM_REMINDERS.md`
-**Not started, not specced.** The next new feature after the wrap-up.
-What's already known: there will be a **Reminders tab** on the webpage
-where reminders show up and can be edited; **Telegram is the only
-delivery channel** (`send_to_user()` already exists for this). Everything
-else - what creates a reminder, which model, the tools it calls, storage,
-timing - is an open question listed in the plan file.
-
-**Next step:** start `docs/features/reminders.md` from
-`docs/features/_template.md` and work through Think → Draw → 🔒 Locked.
-No code until it's locked.
-
-## 5. Deferred on purpose
+## 4. Deferred on purpose
 
 ### Multi-user pivot - `docs/plans/PLAN_MULTI_USER.md`
 Built **last**, after everything above; the app stays Vivek-only until
@@ -123,7 +109,7 @@ mechanism, metrics, migrating today's data to "user #1", Telegram
 account-linking, Web Push) are tracked in the plan file and in
 `FUTURE_ARCHITECTURE.md`. Nothing to do on it now.
 
-## 6. Ideas - only being thought about
+## 5. Ideas - only being thought about
 
 Not on the roadmap. Promote to a feature file only if it becomes a real
 plan.
@@ -133,7 +119,7 @@ plan.
   (~30-60s per note is acceptable). Not decided how it would connect to
   the Fly server.
 
-## 7. Dropped - don't build these
+## 6. Dropped - don't build these
 
 - **WhatsApp channel** - dropped entirely. Telegram is the only messaging
   channel. (Reason: WhatsApp only allows free messages within 24h of the
@@ -141,6 +127,9 @@ plan.
   see `docs/features/messaging-channel.md`.)
 - **Apple Push notifications** - dropped in favour of Telegram (and, in
   the multi-user future, Web Push).
+- **Reminders (LLM tool-calling)** - removed from the roadmap
+  2026-10-04. Not planned. If it comes back, plan it from scratch as a
+  new `docs/features/` file (the old notes are in git history).
 - **Planner** - removed earlier (see git history).
 - **Kanban, projects, tags, due dates, linking notes to tasks** - out of
   scope (redesign non-goals); a task is a timed session, not a to-do.

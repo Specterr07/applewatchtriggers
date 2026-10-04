@@ -46,7 +46,6 @@ every push to `main`.
 | Notes-first Home + AI titles | ✅ Shipped 2026-10-04, backfill done | `docs/features/notes-first-ai-titles.md` |
 | Frontend redesign | Built, merged and live at `/`; **formal sign-off not done** (parity walk-through, canvas review, perf/a11y checks, delete `static/index.html`) | `docs/features/frontend-redesign.md` (Status block at top) |
 | Wrap-up for portfolio | Not started: 401 bug fix, security review, README, MIT license, Loom video | `TODO.md` §1 |
-| Reminders (LLM tool-calling) | **Not specced.** No code until its feature file is 🔒 Locked | `docs/plans/PLAN_LLM_REMINDERS.md` |
 | Multi-user pivot | Deferred on purpose - built last | `docs/plans/PLAN_MULTI_USER.md`, `FUTURE_ARCHITECTURE.md` |
 
 ## 4. Rules that matter most

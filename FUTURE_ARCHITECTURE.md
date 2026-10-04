@@ -9,7 +9,7 @@ in `docs/plans/PLAN_MULTI_USER.md` is applied - color-coded so it's obvious what
 actually decided (🟢 green), what's a firm decision but with real gaps in
 *how* (🟡 yellow, dashed), and what's being removed (⬛ grey). Nothing
 yellow was guessed at; each one is a listed open question in
-`docs/plans/PLAN_MULTI_USER.md` or `docs/plans/PLAN_LLM_REMINDERS.md`. This pivot is explicitly
+`docs/plans/PLAN_MULTI_USER.md`. This pivot is explicitly
 **deferred until after everything else** - this diagram exists so the
 gaps are visible now, not because it's happening next.
 
@@ -29,7 +29,6 @@ flowchart TB
         CanvasRoute["routes/canvas.py"]
         NotesRoute["routes/notes.py"]
         TelegramRoute["routes/telegram.py<br/>🟡 webhook must route each chat<br/>to the right user"]
-        RemindersRoute["🟡 routes/reminders.py ?<br/>shape entirely undecided -<br/>see docs/plans/PLAN_LLM_REMINDERS.md"]
     end
 
     Watch --> TasksRoute
@@ -37,7 +36,6 @@ flowchart TB
     AuthLayer --> CanvasRoute
     AuthLayer --> NotesRoute
     AuthLayer --> TelegramRoute
-    AuthLayer --> RemindersRoute
 
     subgraph Storage["Storage — per-user isolation added everywhere"]
         EngineChoice["🟡 Still per-feature SQLite files,<br/>OR moved to Postgres for real<br/>concurrent multi-user writes:<br/>NOT DECIDED"]
@@ -67,8 +65,6 @@ flowchart TB
     NotesRoute --> Tigris
     NotesRoute --> Groq
     TelegramRoute --> TelegramSvc
-    RemindersRoute -.->|"🟡 trigger mechanism TBD"| TelegramSvc
-    RemindersRoute -.->|"🟡 trigger mechanism TBD"| WebPushSvc
 
     Migration["🟡 Existing single-user data becomes user #1:<br/>migration approach NOT DECIDED"]
     UsersDB -.- Migration
@@ -80,7 +76,7 @@ flowchart TB
     class AuthNew,AuthLayer green
     class UsersDB,TasksDB,CanvasDB,NotesDB,UsageDB green
     class WebPushSvc green
-    class EngineChoice,RemindersRoute,Migration,TelegramRoute,ChannelsDB,TelegramSvc yellow
+    class EngineChoice,Migration,TelegramRoute,ChannelsDB,TelegramSvc yellow
     class ApplePushSvc grey
 ```
 
@@ -110,10 +106,6 @@ flowchart TB
 - What the usage/cost metrics actually measure.
 - The exact Tigris key structure once it's per-user.
 - How today's single-user data becomes the first real account.
-- What triggers a reminder at all, and therefore what
-  `routes/reminders.py` (if that's even its name) looks like - this
-  entire box is a placeholder for a feature with no spec yet
-  (`docs/plans/PLAN_LLM_REMINDERS.md`).
 - How Telegram links move from "always user 1" to per-account, and Web
   Push's browser-permission/VAPID setup.
 

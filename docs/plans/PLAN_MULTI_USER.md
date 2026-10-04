@@ -18,10 +18,9 @@ question, not an assumption.
    account (this app calls two paid external services today - Groq
    transcription and Tigris storage - so per-user cost visibility
    matters once more than one person is using it).
-4. **Apple Push dropped entirely.** Reminders (see
-   `PLAN_LLM_REMINDERS.md`) go out via **Telegram + Web Push** instead,
-   in-app, not through Apple's push service. (For the single-user
-   reminders build, Telegram is the only channel; Web Push is a
+4. **Apple Push dropped entirely.** Messages from the server to a user
+   go out via **Telegram + Web Push** instead, not through Apple's push
+   service. (Telegram exists today, single-user; Web Push is a
    multi-user-era addition. WhatsApp has been dropped entirely.)
 5. **Sequencing:** this is explicitly the LAST thing built, after
    everything else currently planned. Single-user (Vivek-only) is the
@@ -62,8 +61,4 @@ decided yet:
   link, and how the webhook routes incoming notes to the right user.
 - **Web Push specifics.** Service worker, VAPID keys, the browser
   permission flow, and how it coexists with Telegram as a second
-  delivery channel for the same reminders.
-- **Relationship to `PLAN_LLM_REMINDERS.md`.** Reminders will most
-  likely ship single-user first (Telegram only), so this pivot would
-  have to make existing reminders per-user too. How a reminder gets
-  triggered is still unanswered in that plan.
+  delivery channel for the same messages.

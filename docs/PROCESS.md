@@ -27,5 +27,5 @@ update `TODO.md` and `docs/claude-handoff.md` in the same change.
 
 (The older `docs/plans/PLAN_*.md` files are features from before this
 process — same idea, less structure. A plan that hasn't been built yet,
-like `PLAN_LLM_REMINDERS.md`, moves into a new `docs/features/` file
-when work on it starts.)
+like `PLAN_MULTI_USER.md`, moves into a new `docs/features/` file when
+work on it starts.)

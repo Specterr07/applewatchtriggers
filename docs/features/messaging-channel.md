@@ -20,8 +20,8 @@ something I said on Monday).
 
 **Not building:**
 - WhatsApp - **dropped entirely** (see Decisions, 2026-10).
-- *When* reminders fire — that's the reminders feature
-  (`docs/plans/PLAN_LLM_REMINDERS.md`). Here I just prove the pipe with a test message.
+- *When* the server messages me (e.g. reminders) — that's for a later
+  feature. Here I just prove the pipe with a test message.
 - User accounts — that's the multi-user feature, which comes last.
 
 **Options I looked at:**
@@ -86,7 +86,7 @@ The note then shows up in the Notes tab like any other.
 
 ```mermaid
 flowchart TD
-    A["Something wants to message me<br/>(for now: a 'Send test message' button;<br/>later: the reminders feature)"] --> B["send_to_user(user 1, text)"]
+    A["Something wants to message me<br/>(for now: a 'Send test message' button;<br/>later: any feature that needs it)"] --> B["send_to_user(user 1, text)"]
     B --> C{"Does user 1 have<br/>a linked channel?"}
     C -- no --> D["Return error: 'No channel linked'"]
     C -- yes --> E["Pick the right sender for that channel<br/>(only Telegram for now)"]
@@ -186,8 +186,8 @@ once when registering the webhook).
 - **Telegram first, WhatsApp maybe later.** The whole point is sending
   reminders later, and WhatsApp makes that hard and paid. Revisit if
   real users ask for WhatsApp. *(2026-09-19)*
-- **WhatsApp dropped entirely.** Telegram is the only messaging channel,
-  including for the reminders feature. *(2026-10)*
+- **WhatsApp dropped entirely.** Telegram is the only messaging channel.
+  *(2026-10)*
 - **The Connect / Test buttons moved** from the old page's Notes tab to
   the React app's Telegram screen (`/integrations/telegram`) in the
   frontend redesign. Same API. *(2026-09-30)*
