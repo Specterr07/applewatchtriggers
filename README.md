@@ -1,7 +1,8 @@
 # Sheev
 
-<video src="https://streamable.com/ilfs39" width="100%" controls preload="metadata">
-</video>
+
+https://github.com/user-attachments/assets/777415df-8db2-49fd-add8-d0841eb6a0d5
+
 
 **A personal voice-notes and time-tracking tool - record a thought from
 your phone, Apple Watch or Telegram and get back a searchable, AI-titled
