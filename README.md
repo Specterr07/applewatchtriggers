@@ -1,5 +1,7 @@
 # Sheev
 
+https://github.com/user-attachments/assets/bd7e1a39-c798-4e4a-8588-27edb4417396
+
 **A personal voice-notes and time-tracking tool - record a thought from
 your phone, Apple Watch or Telegram and get back a searchable, AI-titled
 note.**
