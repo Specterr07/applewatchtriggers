@@ -243,7 +243,7 @@ function NoteContentSection({
             value={draft}
             onChange={(e) => setDraft(e.target.value)}
             placeholder="Write your note here..."
-            className="w-full resize-y rounded-control border border-border bg-surface p-3 text-base leading-relaxed text-foreground placeholder:text-secondary focus:border-accent-strong focus:outline-none focus:ring-1 focus:ring-accent-strong"
+            className="w-full resize-y rounded-control border border-border bg-surface p-3 text-md leading-relaxed text-foreground placeholder:text-secondary focus:border-accent-strong focus:outline-none focus:ring-1 focus:ring-accent-strong md:text-base"
           />
           <div className="flex justify-end gap-2">
             <Button

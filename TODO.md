@@ -93,12 +93,12 @@ is removing the old page. Details in `docs/features/frontend-redesign.md`
 
 ## 3. Known bugs & small fixes (no feature file needed)
 
-- [ ] **Mobile viewport auto-zooms when focusing note inputs.** On iOS
+- [x] **Mobile viewport auto-zooms when focusing note inputs.** On iOS
       Safari, tapping a textarea or input styled with font size < 16px
-      (such as `text-base`, which is 14px in our design system) causes the
+      (such as `text-base`, which is 14px in our design system) caused the
       mobile browser to automatically zoom in the viewport, disrupting
-      the layout. Fix by setting mobile input/textarea font size to at least
-      16px (`text-md`).
+      the layout. Fixed by setting mobile input/textarea font size to at least
+      16px (`text-md md:text-base`). *(2026-10-12)*
 - [x] **A 401 during a voice-note upload signs you out and the recording
       is lost.** It should keep the recording so it can be retried after
       signing back in. *(highest priority)*

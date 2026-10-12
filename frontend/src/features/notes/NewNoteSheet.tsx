@@ -158,7 +158,7 @@ export function NewNoteSheet({ open, onOpenChange }: NewNoteSheetProps) {
                 value={text}
                 onChange={(e) => handleTextChange(e.target.value)}
                 onKeyDown={handleKeyDown}
-                className="w-full flex-1 resize-none border-0 bg-transparent p-0 text-base leading-relaxed text-foreground placeholder:text-secondary focus:outline-none focus:ring-0"
+                className="w-full flex-1 resize-none border-0 bg-transparent p-0 text-md leading-relaxed text-foreground placeholder:text-secondary focus:outline-none focus:ring-0 md:text-base"
               />
             </div>
 
@@ -196,7 +196,7 @@ export function NewNoteSheet({ open, onOpenChange }: NewNoteSheetProps) {
             value={text}
             onChange={(e) => handleTextChange(e.target.value)}
             onKeyDown={handleKeyDown}
-            className="w-full resize-y rounded-control border border-border bg-surface p-3 text-base leading-relaxed text-foreground placeholder:text-secondary focus:border-accent-strong focus:outline-none focus:ring-1 focus:ring-accent-strong"
+            className="w-full resize-y rounded-control border border-border bg-surface p-3 text-md leading-relaxed text-foreground placeholder:text-secondary focus:border-accent-strong focus:outline-none focus:ring-1 focus:ring-accent-strong md:text-base"
           />
         </div>
 
