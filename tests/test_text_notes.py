@@ -90,3 +90,19 @@ def test_telegram_webhook_text_message(client, monkeypatch):
     saved_note = next(n for n in notes if n["transcript"] == "Remember to buy milk on the way home")
     assert saved_note["title"] == "Telegram Idea"
     assert saved_note["audio_key"] == ""
+
+
+def test_update_note_text_content(client):
+    notes_db.ensure_notes_db()
+    note_id = notes_db.insert_note("Initial text", audio_key="", created_at="2026-10-12 10:00:00", title="Test")
+
+    # Update content via PATCH
+    res = client.patch(f"/api/notes/{note_id}", headers=HEADERS, json={"text": "Updated content from mobile"})
+    assert res.status_code == 200
+    data = res.get_json()
+    assert data["ok"] is True
+    assert data["note"]["transcript"] == "Updated content from mobile"
+
+    # Verify persistence
+    persisted = notes_db.fetch_note(note_id)
+    assert persisted["transcript"] == "Updated content from mobile"

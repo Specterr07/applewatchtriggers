@@ -17,10 +17,18 @@ export async function listNotes(): Promise<Note[]> {
   return data.notes
 }
 
+// Updates a note's title and/or content.
+export async function updateNote(
+  noteId: number,
+  changes: { title?: string | null; text?: string },
+): Promise<Note> {
+  const data = await apiFetch<UpdateNoteResponse>(`/api/notes/${noteId}`, { method: 'PATCH', body: changes })
+  return data.note
+}
+
 // Renames a note. An empty title clears it (the list then shows the first words).
 export async function renameNote(noteId: number, title: string): Promise<Note> {
-  const data = await apiFetch<UpdateNoteResponse>(`/api/notes/${noteId}`, { method: 'PATCH', body: { title } })
-  return data.note
+  return updateNote(noteId, { title })
 }
 
 // Permanently deletes a note (its audio first, then its record).

@@ -7,12 +7,14 @@ import { ConfirmDialog } from '@/components/ui/ConfirmDialog'
 import { EmptyState } from '@/components/ui/EmptyState'
 import { Input } from '@/components/ui/Input'
 import { Skeleton } from '@/components/ui/Skeleton'
+import { Spinner } from '@/components/ui/Spinner'
 import { NotePlayer } from '@/features/notes/NoteAudio'
 import { getNoteTitle, hasRealTitle } from '@/features/notes/noteText'
 import { useDeleteNote } from '@/hooks/useDeleteNote'
 import { useNotes } from '@/hooks/useNotes'
 import { useNow } from '@/hooks/useNow'
 import { useRenameNote } from '@/hooks/useRenameNote'
+import { useUpdateNote } from '@/hooks/useUpdateNote'
 import type { Note } from '@/types/note'
 import { cn } from '@/utils/cn'
 import { notifyError } from '@/utils/notifyError'
@@ -82,24 +84,7 @@ export function NoteDetail({ noteId, onClose }: { noteId: number; onClose: () =>
         {!isTextNote && <NotePlayer key={note.id} note={note} />}
       </section>
 
-      <section aria-labelledby="note-content-heading" className="border-t border-border pt-5">
-        <h2 id="note-content-heading" className="mb-2 text-md font-semibold">
-          {isTextNote ? 'Content' : 'Transcript'}
-        </h2>
-        <p className="text-md break-words whitespace-pre-wrap">
-          {note.transcript.trim() || (
-            <span className="text-secondary">
-              {isTextNote ? 'Empty note.' : 'No speech was detected.'}
-            </span>
-          )}
-        </p>
-        {note.transcript.trim() && (
-          <Button variant="secondary" className="mt-4" onClick={() => void copyTranscript()}>
-            <Copy aria-hidden />
-            {isTextNote ? 'Copy content' : 'Copy transcript'}
-          </Button>
-        )}
-      </section>
+      <NoteContentSection note={note} isTextNote={isTextNote} copyTranscript={copyTranscript} />
 
       <section className="border-t border-border pt-5">
         <Button variant="secondary" className="text-danger-text" onClick={() => setIsConfirmingDelete(true)}>
@@ -189,3 +174,118 @@ function NoteTitle({ note }: { note: Note }) {
     </div>
   )
 }
+
+function NoteContentSection({
+  note,
+  isTextNote,
+  copyTranscript,
+}: {
+  note: Note
+  isTextNote: boolean
+  copyTranscript: () => void
+}) {
+  const updateNote = useUpdateNote()
+  const [isEditing, setIsEditing] = useState(false)
+  const [draft, setDraft] = useState(note.transcript)
+
+  const handleStartEdit = () => {
+    setDraft(note.transcript)
+    setIsEditing(true)
+  }
+
+  const handleCancel = () => {
+    setDraft(note.transcript)
+    setIsEditing(false)
+  }
+
+  const handleSave = async () => {
+    if (draft.trim() === note.transcript.trim()) {
+      setIsEditing(false)
+      return
+    }
+    if (!draft.trim()) {
+      toast.error('Note cannot be empty')
+      return
+    }
+    try {
+      await updateNote.mutateAsync({ noteId: note.id, changes: { text: draft.trim() } })
+      setIsEditing(false)
+      toast.success('Note updated')
+    } catch (err) {
+      notifyError(err)
+    }
+  }
+
+  return (
+    <section aria-labelledby="note-content-heading" className="border-t border-border pt-5">
+      <div className="mb-2 flex items-center justify-between">
+        <h2 id="note-content-heading" className="text-md font-semibold">
+          {isTextNote ? 'Content' : 'Transcript'}
+        </h2>
+        {isTextNote && !isEditing && (
+          <Button
+            variant="ghost"
+            size="default"
+            onClick={handleStartEdit}
+            className="h-8 gap-1.5 px-2.5 text-xs font-normal text-secondary hover:text-foreground"
+          >
+            <Pencil aria-hidden className="size-3.5" />
+            Edit
+          </Button>
+        )}
+      </div>
+
+      {isEditing ? (
+        <div className="flex flex-col gap-3">
+          <textarea
+            autoFocus
+            rows={8}
+            value={draft}
+            onChange={(e) => setDraft(e.target.value)}
+            placeholder="Write your note here..."
+            className="w-full resize-y rounded-control border border-border bg-surface p-3 text-base leading-relaxed text-foreground placeholder:text-secondary focus:border-accent-strong focus:outline-none focus:ring-1 focus:ring-accent-strong"
+          />
+          <div className="flex justify-end gap-2">
+            <Button
+              variant="secondary"
+              size="default"
+              className="h-9 px-3 text-sm"
+              onClick={handleCancel}
+              disabled={updateNote.isPending}
+            >
+              Cancel
+            </Button>
+            <Button
+              size="default"
+              className="h-9 px-3 text-sm"
+              onClick={() => void handleSave()}
+              disabled={!draft.trim() || updateNote.isPending}
+            >
+              {updateNote.isPending ? <Spinner className="size-3.5" /> : null}
+              Save changes
+            </Button>
+          </div>
+        </div>
+      ) : (
+        <>
+          <p className="text-md break-words whitespace-pre-wrap leading-relaxed">
+            {note.transcript.trim() || (
+              <span className="text-secondary">
+                {isTextNote ? 'Empty note.' : 'No speech was detected.'}
+              </span>
+            )}
+          </p>
+          {note.transcript.trim() && (
+            <div className="mt-4 flex gap-2">
+              <Button variant="secondary" onClick={() => void copyTranscript()}>
+                <Copy aria-hidden />
+                {isTextNote ? 'Copy content' : 'Copy transcript'}
+              </Button>
+            </div>
+          )}
+        </>
+      )}
+    </section>
+  )
+}
+

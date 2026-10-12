@@ -20,6 +20,7 @@ export default defineConfig(({ command }) => ({
     alias: { '@': fileURLToPath(new URL('./src', import.meta.url)) },
   },
   server: {
+    host: true,
     proxy: {
       '/api': FLASK_DEV_SERVER,
       '/toggle': FLASK_DEV_SERVER,

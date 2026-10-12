@@ -142,4 +142,7 @@ flowchart LR
 - Reused the shared Groq AI titling service (`services/titling.py`) for text notes so both voice and typed notes get concise titles automatically without extra configuration.
 - Extended the Telegram webhook (`routes/telegram.py`) so regular text messages sent to the bot are saved into `notes.db`, titled with AI, and replied to with `Saved ✅ <title>\n\n<text>`.
 - Using an empty string `audio_key=""` and `has_audio: bool` avoided any destructive SQLite database migrations, guaranteeing seamless backward compatibility with existing databases on Fly.
-- Kept the JS bundle addition minimal (~2 KB gzipped), remaining well within the 250 KB budget (179.38 KB gzipped).
+- Clean and simple plain-text notes experience without extra formatting toolbars or markdown syntax parsers.
+- Kept the JS bundle addition minimal (~2 KB gzipped), remaining well within the 250 KB budget (179.8 KB gzipped).
+
+

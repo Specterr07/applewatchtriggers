@@ -110,6 +110,19 @@ def update_note_title(note_id, title):
         raise RuntimeError(f"Could not update note title: {e}")
 
 
+def update_note_content(note_id, transcript):
+    """Updates one note's transcript/content. Returns True if the note exists."""
+    try:
+        conn = get_db_connection()
+        cursor = conn.execute("UPDATE notes SET transcript = ? WHERE id = ?", (transcript, note_id))
+        conn.commit()
+        updated = cursor.rowcount > 0
+        conn.close()
+        return updated
+    except sqlite3.Error as e:
+        raise RuntimeError(f"Could not update note content: {e}")
+
+
 def fetch_untitled_notes():
     """Notes that have no title yet, oldest first (used by the backfill script)."""
     try:

@@ -116,33 +116,53 @@ MAX_TITLE_LENGTH = 120
 @require_key
 def update_note(note_id):
     """
-    Renames a note: body {"title": "..."}. An empty title clears it, so the
-    UI goes back to showing the first words of the transcript.
+    Updates a note:
+    - body {"title": "..."} renames the note.
+    - body {"text": "..."} or {"transcript": "..."} updates the note content.
     """
     body = request.get_json(silent=True)
-    if not isinstance(body, dict) or "title" not in body:
-        return jsonify({"ok": False, "message": "Send JSON like {\"title\": \"...\"}"}), 400
+    if not isinstance(body, dict):
+        return jsonify({"ok": False, "message": "Send JSON like {\"title\": \"...\"} or {\"text\": \"...\"}"}), 400
 
-    title = body["title"]
-    if title is not None and not isinstance(title, str):
-        return jsonify({"ok": False, "message": "title must be text"}), 400
+    has_title = "title" in body
+    has_text = "text" in body or "transcript" in body
 
-    title = (title or "").strip() or None
-    if title is not None and len(title) > MAX_TITLE_LENGTH:
-        return jsonify({"ok": False, "message": f"Title must be {MAX_TITLE_LENGTH} characters or fewer"}), 400
+    if not has_title and not has_text:
+        return jsonify({"ok": False, "message": "Specify 'title' or 'text' to update"}), 400
+
+    notes_db.ensure_notes_db()
+    existing_row = notes_db.fetch_note(note_id)
+    if not existing_row:
+        return jsonify({"ok": False, "message": "No note with that id"}), 404
 
     try:
-        notes_db.ensure_notes_db()
-        if not notes_db.update_note_title(note_id, title):
-            return jsonify({"ok": False, "message": "No note with that id"}), 404
+        if has_title:
+            title = body["title"]
+            if title is not None and not isinstance(title, str):
+                return jsonify({"ok": False, "message": "title must be text"}), 400
+            title = (title or "").strip() or None
+            if title is not None and len(title) > MAX_TITLE_LENGTH:
+                return jsonify({"ok": False, "message": f"Title must be {MAX_TITLE_LENGTH} characters or fewer"}), 400
+            notes_db.update_note_title(note_id, title)
+
+        if has_text:
+            text = body.get("text") if "text" in body else body.get("transcript")
+            if not isinstance(text, str) or not text.strip():
+                return jsonify({"ok": False, "message": "Note text cannot be empty"}), 400
+            notes_db.update_note_content(note_id, text.strip())
+
         row = notes_db.fetch_note(note_id)
     except RuntimeError as e:
         return jsonify({"ok": False, "message": str(e)}), 500
 
-    try:
-        audio_url = object_storage.presigned_audio_url(row["audio_key"])
-    except RuntimeError:
-        audio_url = None
+    audio_key = row["audio_key"]
+    has_audio = bool(audio_key and audio_key.strip())
+    audio_url = None
+    if has_audio:
+        try:
+            audio_url = object_storage.presigned_audio_url(audio_key)
+        except RuntimeError:
+            audio_url = None
 
     return jsonify({"ok": True, "note": _note_to_dict(row, audio_url)}), 200
 

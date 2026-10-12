@@ -1,10 +1,10 @@
 import { useQuery, type QueryClient } from '@tanstack/react-query'
 
-import { deleteNote, listNotes, renameNote } from '@/api/notes'
+import { deleteNote, listNotes, renameNote, updateNote } from '@/api/notes'
 import { QUERY_KEYS } from '@/api/queryClient'
 import { AUDIO_URL_MAX_AGE_MS } from '@/features/notes/audioRecovery'
 
-// All voice notes (newest first), cached and shared by every screen.
+// All voice and text notes (newest first), cached and shared by every screen.
 // Playback links expire after an hour, so while a page using notes stays
 // open and visible, the list (and its links) is refreshed every 50 minutes.
 export function useNotes() {
@@ -27,6 +27,15 @@ export function deleteNoteMutationOptions(queryClient: QueryClient) {
 export function renameNoteMutationOptions(queryClient: QueryClient) {
   return {
     mutationFn: ({ noteId, title }: { noteId: number; title: string }) => renameNote(noteId, title),
+    onSettled: () => void queryClient.invalidateQueries({ queryKey: QUERY_KEYS.notes }),
+  }
+}
+
+// Update-a-note mutation settings (title and/or content).
+export function updateNoteMutationOptions(queryClient: QueryClient) {
+  return {
+    mutationFn: ({ noteId, changes }: { noteId: number; changes: { title?: string | null; text?: string } }) =>
+      updateNote(noteId, changes),
     onSettled: () => void queryClient.invalidateQueries({ queryKey: QUERY_KEYS.notes }),
   }
 }
