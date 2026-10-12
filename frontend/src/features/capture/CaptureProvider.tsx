@@ -6,6 +6,7 @@ import { createContext, useContext, useState, type ReactNode } from 'react'
 import { CaptureSheet, type CaptureView } from '@/features/capture/CaptureSheet'
 import { StartTaskSheet } from '@/features/capture/StartTaskSheet'
 import { useRecorder } from '@/features/notes/RecorderProvider'
+import { NewNoteSheet } from '@/features/notes/NewNoteSheet'
 import { RecorderStatusPill } from '@/features/notes/RecorderStatusPill'
 
 type CaptureContextValue = {
@@ -13,6 +14,7 @@ type CaptureContextValue = {
   openStartTask: () => void
   // Opens the recorder and, if it's free, starts recording straight away.
   openRecorder: () => void
+  openNewNote: () => void
 }
 
 const CaptureContext = createContext<CaptureContextValue | null>(null)
@@ -20,11 +22,17 @@ const CaptureContext = createContext<CaptureContextValue | null>(null)
 export function CaptureProvider({ children, bottomNavVisible }: { children: ReactNode; bottomNavVisible: boolean }) {
   const [view, setView] = useState<CaptureView | null>(null)
   const [isStartTaskOpen, setIsStartTaskOpen] = useState(false)
+  const [isNewNoteOpen, setIsNewNoteOpen] = useState(false)
   const recorder = useRecorder()
 
   const openStartTask = () => {
     setView(null)
     setIsStartTaskOpen(true)
+  }
+
+  const openNewNote = () => {
+    setView(null)
+    setIsNewNoteOpen(true)
   }
 
   // Called from a tap, so the microphone request happens inside that user
@@ -38,15 +46,17 @@ export function CaptureProvider({ children, bottomNavVisible }: { children: Reac
   }
 
   return (
-    <CaptureContext.Provider value={{ openCapture: () => setView('menu'), openStartTask, openRecorder }}>
+    <CaptureContext.Provider value={{ openCapture: () => setView('menu'), openStartTask, openRecorder, openNewNote }}>
       {children}
       <CaptureSheet
         view={view}
         onViewChange={setView}
         onStartTask={openStartTask}
         onRecord={openRecorder}
+        onWriteNote={openNewNote}
       />
       <StartTaskSheet open={isStartTaskOpen} onOpenChange={setIsStartTaskOpen} />
+      <NewNoteSheet open={isNewNoteOpen} onOpenChange={setIsNewNoteOpen} />
       {view !== 'record' && <RecorderStatusPill onOpen={() => setView('record')} aboveBottomNav={bottomNavVisible} />}
     </CaptureContext.Provider>
   )

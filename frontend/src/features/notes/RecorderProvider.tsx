@@ -7,6 +7,7 @@ import { toast } from 'sonner'
 
 import { createNote } from '@/api/notes'
 import { QUERY_KEYS } from '@/api/queryClient'
+import { useAuth } from '@/features/auth/AuthProvider'
 import { createRecorderController, type RecorderController, type RecorderLike, type RecorderState } from '@/features/notes/recorderController'
 import type { Note } from '@/types/note'
 
@@ -30,6 +31,7 @@ function createBrowserRecorder(onNoteSaved: (note: Note) => void) {
 }
 
 export function RecorderProvider({ children }: { children: ReactNode }) {
+  const { status } = useAuth()
   const queryClient = useQueryClient()
   const onSavedRef = useRef<() => void>(() => {})
   onSavedRef.current = () => {
@@ -42,6 +44,13 @@ export function RecorderProvider({ children }: { children: ReactNode }) {
   // uses the current queryClient without recreating the recorder.
   const [controller] = useState(() => createBrowserRecorder(() => onSavedRef.current()))
   const state = useSyncExternalStore(controller.subscribe, controller.getState)
+
+  // When signed out, cancel any in-progress recording to free the mic.
+  // (If an upload was already failing, cancel() does nothing, keeping the
+  // pending recording safely in memory).
+  useEffect(() => {
+    if (status === 'signed-out') controller.cancel()
+  }, [status, controller])
 
   // Leaving the app (e.g. signing out): stop recording and free the mic.
   useEffect(() => () => controller.dispose(), [controller])

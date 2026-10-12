@@ -7,7 +7,6 @@ import { CANVAS } from '@/components/layout/navItems'
 import { Sidebar } from '@/components/layout/Sidebar'
 import { Spinner } from '@/components/ui/Spinner'
 import { CaptureProvider } from '@/features/capture/CaptureProvider'
-import { RecorderProvider } from '@/features/notes/RecorderProvider'
 
 // The frame around every screen: sidebar (tablet/desktop) or bottom nav
 // (phone), with the current route rendered in the middle. The recorder
@@ -23,9 +22,8 @@ export function AppShell() {
   const hidesBottomNav = isCanvas || isDetailScreen
 
   return (
-    <RecorderProvider>
-      <CaptureProvider bottomNavVisible={!hidesBottomNav}>
-        <KeyboardShortcuts />
+    <CaptureProvider bottomNavVisible={!hidesBottomNav}>
+      <KeyboardShortcuts />
         <div className="min-h-dvh md:flex">
           <a
             href="#main"
@@ -56,8 +54,7 @@ export function AppShell() {
           </main>
 
           {!hidesBottomNav && <BottomNav />}
-        </div>
-      </CaptureProvider>
-    </RecorderProvider>
+      </div>
+    </CaptureProvider>
   )
 }

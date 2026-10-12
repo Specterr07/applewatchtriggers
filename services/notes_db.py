@@ -58,8 +58,9 @@ def ensure_notes_db():
         raise RuntimeError(f"Could not set up notes database: {e}")
 
 
-def insert_note(transcript, audio_key, created_at, title=None):
-    """Saves a new note and returns its id. title may be None."""
+def insert_note(transcript, audio_key="", created_at=None, title=None):
+    """Saves a new note and returns its id. audio_key may be empty string for text notes; title may be None."""
+    audio_key = audio_key or ""
     try:
         conn = get_db_connection()
         cursor = conn.execute(

@@ -9,29 +9,60 @@ was never actually uploaded, or audio in storage with no note record.
 
 from flask import Blueprint, jsonify, request
 
-from services import notes_db, object_storage
+from services import notes_db, object_storage, titling
 from services.auth import require_key
 from services.note_pipeline import save_voice_note
+from services.time import local_now
 
 notes_bp = Blueprint("notes", __name__)
 
 
 def _note_to_dict(row, audio_url):
+    has_audio = bool(row["audio_key"] and row["audio_key"].strip())
     return {
         "id": row["id"],
         "title": row["title"],
         "transcript": row["transcript"],
-        "audio_url": audio_url,
+        "audio_url": audio_url if has_audio else None,
+        "has_audio": has_audio,
         "created_at": row["created_at"],
     }
+
 
 @notes_bp.route("/api/notes", methods=["POST"])
 @require_key
 def create_note():
     """
-    Uploads a voice recording: transcribes it, compresses it, stores
-    the compressed audio in Tigris, and saves the note.
+    Creates a note:
+    - If JSON body with {"text": "..."}: saves a text note with AI title.
+    - If multipart audio file: transcribes it, compresses it, stores
+      the compressed audio in Tigris, and saves the note.
     """
+    if request.is_json:
+        data = request.get_json(silent=True) or {}
+        text = data.get("text")
+        if not text or not isinstance(text, str) or not text.strip():
+            return jsonify({"ok": False, "message": "Note text cannot be empty"}), 400
+
+        text = text.strip()
+        created_at = local_now().strftime("%Y-%m-%d %H:%M:%S")
+        title = titling.generate_title(text)
+
+        notes_db.ensure_notes_db()
+        new_id = notes_db.insert_note(text, audio_key="", created_at=created_at, title=title)
+
+        return jsonify({
+            "ok": True,
+            "note": {
+                "id": new_id,
+                "title": title,
+                "transcript": text,
+                "audio_url": None,
+                "has_audio": False,
+                "created_at": created_at,
+            },
+        }), 201
+
     audio_file = request.files.get("audio")
     if audio_file is None or audio_file.filename == "":
         return jsonify({"ok": False, "message": "No audio file uploaded"}), 400
@@ -45,6 +76,7 @@ def create_note():
     except RuntimeError as e:
         return jsonify({"ok": False, "message": str(e)}), 500
 
+    note_data["has_audio"] = True
     return jsonify({
         "ok": True,
         "note": note_data,
@@ -54,7 +86,7 @@ def create_note():
 @notes_bp.route("/api/notes", methods=["GET"])
 @require_key
 def list_notes():
-    """Returns every voice note, newest first, each with a fresh playback link."""
+    """Returns every note, newest first, each with a fresh playback link if audio exists."""
     try:
         notes_db.ensure_notes_db()
         rows = notes_db.fetch_all_notes()
@@ -63,10 +95,14 @@ def list_notes():
 
     notes = []
     for row in rows:
-        try:
-            audio_url = object_storage.presigned_audio_url(row["audio_key"])
-        except RuntimeError:
-            audio_url = None
+        audio_key = row["audio_key"]
+        has_audio = bool(audio_key and audio_key.strip())
+        audio_url = None
+        if has_audio:
+            try:
+                audio_url = object_storage.presigned_audio_url(audio_key)
+            except RuntimeError:
+                audio_url = None
         notes.append(_note_to_dict(row, audio_url))
 
     return jsonify({"ok": True, "notes": notes}), 200

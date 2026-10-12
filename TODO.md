@@ -35,6 +35,7 @@ single-user (Vivek only) by design.
 | Telegram channel (send voice notes to the server from the phone) | `docs/features/messaging-channel.md` | 2026-09 |
 | Frontend redesign, phases M0-M4 + cutover to `/` | `docs/features/frontend-redesign.md` | 2026-09-30 (PRs #1-#4) |
 | Notes-first Home + AI note titles (+ backfill) | `docs/features/notes-first-ai-titles.md` | 2026-10-04 (PRs #5, #6) |
+| Text notes & Telegram text capture | `docs/features/text-notes.md` | 2026-10-12 |
 
 ---
 
@@ -43,13 +44,21 @@ single-user (Vivek only) by design.
 The goal of this block: Sheev can go on the resume and be shown to
 recruiters. Do these in order.
 
-- [ ] **Fix the voice-note 401 bug** (see Known bugs below) - losing a
+- [x] **Fix the voice-note 401 bug** (see Known bugs below) - losing a
       recording is the worst thing the app can do to its main feature.
 - [ ] **Security review** of the whole app: API-key handling, the
       Telegram webhook secret, presigned URL expiry, secrets in git
       history, CORS/headers, what an unauthenticated visitor can reach.
       Write the findings into a short `docs/SECURITY.md`; fix anything
       serious as bug fixes.
+- [ ] **In-app password change & reset** (new feature, planning) -
+      splits the web password from the Watch `API_KEY` so it can be
+      changed in Settings without `fly secrets set`.
+      `docs/features/in-app-password.md` (1. Think, 4 open questions).
+- [x] **Text notes & Telegram text capture** (shipped 2026-10-12) -
+      type notes directly in the app (without recording voice) and ingest
+      regular text chats from Telegram as notes.
+      `docs/features/text-notes.md`.
 - [x] **README.md** at the repo root: what Sheev is, features, stack,
       a diagram (links `ARCHITECTURE.md`), running locally, env vars,
       tests, deployment. *(2026-10-04)* Still to add: a screenshot or GIF.
@@ -84,7 +93,7 @@ is removing the old page. Details in `docs/features/frontend-redesign.md`
 
 ## 3. Known bugs & small fixes (no feature file needed)
 
-- [ ] **A 401 during a voice-note upload signs you out and the recording
+- [x] **A 401 during a voice-note upload signs you out and the recording
       is lost.** It should keep the recording so it can be retried after
       signing back in. *(highest priority)*
 - [ ] **Keep all `.db` files in one folder.** Locally, `DATA_DIR`

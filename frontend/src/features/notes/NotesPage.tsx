@@ -29,7 +29,7 @@ export function NotesPage() {
   const selectedNoteId = noteId ? Number(noteId) : null
   const hasSidebar = useMediaQuery(MEDIA_HAS_SIDEBAR)
   const closeDetail = useCloseDetail('/notes')
-  const { openRecorder } = useCapture()
+  const { openRecorder, openNewNote } = useCapture()
   const notesQuery = useNotes()
   const now = useNow(60_000)
   const [query, setQuery] = useState('')
@@ -44,10 +44,21 @@ export function NotesPage() {
 
   const matches = filterNotes(notesQuery.data ?? [], query)
   const viewState = getNotesViewState({ isPending: notesQuery.isPending, isError: notesQuery.isError, notes: notesQuery.data, matches })
-  const recordButton = <Button onClick={openRecorder}><Mic aria-hidden />Record</Button>
+  const actions = (
+    <div className="flex items-center gap-2">
+      <Button variant="secondary" onClick={openNewNote}>
+        <NotebookPen aria-hidden />
+        Write
+      </Button>
+      <Button onClick={openRecorder}>
+        <Mic aria-hidden />
+        Record
+      </Button>
+    </div>
+  )
 
   return (
-    <Page title="Notes" description="Voice notes, transcribed - from here or Telegram." actions={recordButton}>
+    <Page title="Notes" description="Voice & text notes, transcribed and titled - from here or Telegram." actions={actions}>
       {(viewState === 'list' || viewState === 'no-matches') && (
         <div className="mb-4">
           <SearchInput value={query} onChange={setQuery} label="Search notes" placeholder="Search titles and transcripts" />
@@ -72,7 +83,23 @@ export function NotesPage() {
       )}
       {viewState === 'empty' && (
         <Card>
-          <EmptyState icon={NotebookPen} title="No notes yet" description="Record one here, or send a voice note to your Telegram bot." action={recordButton} />
+          <EmptyState
+            icon={NotebookPen}
+            title="No notes yet"
+            description="Write or record a note here, or send one to your Telegram bot."
+            action={
+              <div className="flex gap-2">
+                <Button variant="secondary" onClick={openNewNote}>
+                  <NotebookPen aria-hidden />
+                  Write
+                </Button>
+                <Button onClick={openRecorder}>
+                  <Mic aria-hidden />
+                  Record
+                </Button>
+              </div>
+            }
+          />
         </Card>
       )}
       {viewState === 'no-matches' && (

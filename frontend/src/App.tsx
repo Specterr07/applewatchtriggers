@@ -5,6 +5,7 @@ import { queryClient } from '@/api/queryClient'
 import { Toaster } from '@/components/ui/Toaster'
 import { AuthGate } from '@/features/auth/AuthGate'
 import { AuthProvider } from '@/features/auth/AuthProvider'
+import { RecorderProvider } from '@/features/notes/RecorderProvider'
 import { ThemeProvider } from '@/hooks/useTheme'
 import { router } from '@/router'
 
@@ -15,9 +16,11 @@ export default function App() {
     <ThemeProvider>
       <QueryClientProvider client={queryClient}>
         <AuthProvider>
-          <AuthGate>
-            <RouterProvider router={router} />
-          </AuthGate>
+          <RecorderProvider>
+            <AuthGate>
+              <RouterProvider router={router} />
+            </AuthGate>
+          </RecorderProvider>
         </AuthProvider>
         <Toaster />
       </QueryClientProvider>

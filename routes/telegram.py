@@ -12,7 +12,7 @@ import secrets
 
 from flask import Blueprint, jsonify, request
 
-from services import channels, channels_db, telegram
+from services import channels, channels_db, notes_db, telegram, titling
 from services.auth import require_key
 from services.note_pipeline import save_voice_note
 from services.time import TIMEZONE, local_now
@@ -95,28 +95,43 @@ def telegram_webhook():
 
     # 3. Check if it is a voice note
     voice = message.get("voice") or message.get("audio")
-    if not voice:
-        telegram.send_message(chat_id, "Send me a voice note")
+    if voice:
+        file_id = voice.get("file_id")
+        if not file_id:
+            telegram.send_message(chat_id, "Couldn't save that, try again")
+            return jsonify({"ok": True}), 200
+
+        try:
+            audio_bytes = telegram.download_voice(file_id)
+            # Telegram voice notes are Opus in an Ogg container. Groq expects .ogg or .opus
+            note = save_voice_note(audio_bytes, "telegram_voice.ogg")
+            transcript = note.get("transcript", "")
+            title = note.get("title")
+            heading = f"Saved ✅ {title}" if title else "Saved ✅"
+            telegram.send_message(chat_id, f"{heading}\n\n{transcript}")
+        except Exception as e:
+            import traceback
+            traceback.print_exc()
+            telegram.send_message(chat_id, f"Couldn't save that: {e}")
+
         return jsonify({"ok": True}), 200
 
-    file_id = voice.get("file_id")
-    if not file_id:
-        telegram.send_message(chat_id, "Couldn't save that, try again")
+    # 4. Check if it is a normal text message
+    if text:
+        try:
+            title = titling.generate_title(text)
+            notes_db.ensure_notes_db()
+            notes_db.insert_note(text, audio_key="", created_at=now_str, title=title)
+            heading = f"Saved ✅ {title}" if title else "Saved ✅"
+            telegram.send_message(chat_id, f"{heading}\n\n{text}")
+        except Exception as e:
+            import traceback
+            traceback.print_exc()
+            telegram.send_message(chat_id, f"Couldn't save that: {e}")
+
         return jsonify({"ok": True}), 200
 
-    try:
-        audio_bytes = telegram.download_voice(file_id)
-        # Telegram voice notes are Opus in an Ogg container. Groq expects .ogg or .opus
-        note = save_voice_note(audio_bytes, "telegram_voice.ogg")
-        transcript = note.get("transcript", "")
-        title = note.get("title")
-        heading = f"Saved ✅ {title}" if title else "Saved ✅"
-        telegram.send_message(chat_id, f"{heading}\n\n{transcript}")
-    except Exception as e:
-        import traceback
-        traceback.print_exc()
-        telegram.send_message(chat_id, f"Couldn't save that: {e}")
-
+    telegram.send_message(chat_id, "Send me a voice note or text note")
     return jsonify({"ok": True}), 200
 
 

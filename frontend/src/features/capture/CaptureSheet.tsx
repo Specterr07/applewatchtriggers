@@ -1,4 +1,4 @@
-import { ChevronRight, Mic, PenTool, Play, Square, type LucideIcon } from 'lucide-react'
+import { ChevronRight, Mic, NotebookPen, PenTool, Play, Square, type LucideIcon } from 'lucide-react'
 import type { ReactNode } from 'react'
 import { Link, useNavigate } from 'react-router'
 
@@ -16,6 +16,7 @@ type CaptureSheetProps = {
   onViewChange: (view: CaptureView | null) => void
   onStartTask: () => void
   onRecord: () => void
+  onWriteNote: () => void
 }
 
 const ROW_CLASS =
@@ -24,7 +25,7 @@ const ROW_CLASS =
 // The Capture sheet (spec §4.7): start or stop a task, record a voice note,
 // open the canvas. The recorder runs inside the same sheet; closing it
 // mid-recording is fine - the recording carries on and a status pill shows it.
-export function CaptureSheet({ view, onViewChange, onStartTask, onRecord }: CaptureSheetProps) {
+export function CaptureSheet({ view, onViewChange, onStartTask, onRecord, onWriteNote }: CaptureSheetProps) {
   const { data: tasks } = useTasks()
   const activeTask = findActiveTask(tasks)
   const { toggle, isPending } = useGuardedToggle()
@@ -73,6 +74,13 @@ export function CaptureSheet({ view, onViewChange, onStartTask, onRecord }: Capt
             <button type="button" className={ROW_CLASS} onClick={recorderBusy ? () => onViewChange('record') : onRecord}>
               <RowIcon icon={Mic} />
               <RowText title="Record a voice note" detail={recorderBusy ? 'In progress - tap to view' : undefined} />
+              <ChevronRight aria-hidden className="size-4 text-secondary" />
+            </button>
+          </li>
+          <li>
+            <button type="button" className={ROW_CLASS} onClick={onWriteNote}>
+              <RowIcon icon={NotebookPen} />
+              <RowText title="Write a note" />
               <ChevronRight aria-hidden className="size-4 text-secondary" />
             </button>
           </li>

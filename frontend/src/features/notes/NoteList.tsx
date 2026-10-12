@@ -26,7 +26,7 @@ export function NoteList({ notes, now, timeOnly = false }: { notes: Note[]; now:
                 {timeOnly ? formatClockTime(note.created_at) : formatEventTime(note.created_at, now)}
               </p>
             </Link>
-            <NotePlayButton note={note} />
+            {note.has_audio !== false && <NotePlayButton note={note} />}
           </li>
         ))}
       </ol>

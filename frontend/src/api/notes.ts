@@ -28,6 +28,15 @@ export async function deleteNote(noteId: number): Promise<void> {
   await apiFetch<{ ok: true }>(`/api/notes/${noteId}`, { method: 'DELETE' })
 }
 
+// Saves a text note (without audio).
+export async function createTextNote(text: string): Promise<Note> {
+  const data = await apiFetch<CreateNoteResponse>('/api/notes', {
+    method: 'POST',
+    body: { text },
+  })
+  return data.note
+}
+
 // Uploads a recording and waits for the server to transcribe and store it.
 //
 // Uses XMLHttpRequest rather than fetch() for one reason: it reports when

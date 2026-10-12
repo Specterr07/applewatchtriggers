@@ -47,10 +47,12 @@ export function NoteDetail({ noteId, onClose }: { noteId: number; onClose: () =>
     )
   }
 
+  const isTextNote = note.has_audio === false
+
   const copyTranscript = async () => {
     try {
       await navigator.clipboard.writeText(note.transcript)
-      toast.success('Transcript copied')
+      toast.success(isTextNote ? 'Note copied' : 'Transcript copied')
     } catch {
       // Clipboard access can be refused (permissions, non-secure page).
       toast.error('Couldn’t copy - select the text and copy it instead.')
@@ -72,23 +74,29 @@ export function NoteDetail({ noteId, onClose }: { noteId: number; onClose: () =>
 
   return (
     <div className="flex flex-col gap-6 p-5">
-      <section aria-label="Recording" className="flex flex-col gap-3">
+      <section aria-label={isTextNote ? 'Note details' : 'Recording'} className="flex flex-col gap-3">
         <NoteTitle key={note.id} note={note} />
         <p className="text-secondary">
           {formatDayHeading(note.created_at.slice(0, 10), now)} · {formatClockTime(note.created_at)}
         </p>
-        <NotePlayer key={note.id} note={note} />
+        {!isTextNote && <NotePlayer key={note.id} note={note} />}
       </section>
 
-      <section aria-labelledby="transcript-heading" className="border-t border-border pt-5">
-        <h2 id="transcript-heading" className="mb-2 text-md font-semibold">Transcript</h2>
+      <section aria-labelledby="note-content-heading" className="border-t border-border pt-5">
+        <h2 id="note-content-heading" className="mb-2 text-md font-semibold">
+          {isTextNote ? 'Content' : 'Transcript'}
+        </h2>
         <p className="text-md break-words whitespace-pre-wrap">
-          {note.transcript.trim() || <span className="text-secondary">No speech was detected.</span>}
+          {note.transcript.trim() || (
+            <span className="text-secondary">
+              {isTextNote ? 'Empty note.' : 'No speech was detected.'}
+            </span>
+          )}
         </p>
         {note.transcript.trim() && (
           <Button variant="secondary" className="mt-4" onClick={() => void copyTranscript()}>
             <Copy aria-hidden />
-            Copy transcript
+            {isTextNote ? 'Copy content' : 'Copy transcript'}
           </Button>
         )}
       </section>

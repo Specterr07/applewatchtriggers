@@ -8,6 +8,8 @@ export type Note = {
   transcript: string
   // Presigned playback link (expires after ~1h); null if one couldn't be made.
   audio_url: string | null
+  // True if this note has an audio recording, false for typed / chat notes.
+  has_audio?: boolean
   created_at: string // server wall-clock "YYYY-MM-DD HH:MM:SS"
 }
 

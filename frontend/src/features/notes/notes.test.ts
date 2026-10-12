@@ -24,6 +24,20 @@ describe('note text', () => {
     expect(hasRealTitle({ title: null, transcript: 'x' })).toBe(false)
   })
 
+  it('handles text notes with has_audio false correctly', () => {
+    const textNote: Note = {
+      id: 99,
+      title: 'Brainstorming ideas',
+      transcript: '1. Build new feature\n2. Ship to Fly',
+      audio_url: null,
+      has_audio: false,
+      created_at: '2026-10-12 12:00:00',
+    }
+    expect(getNoteTitle(textNote)).toBe('Brainstorming ideas')
+    expect(hasRealTitle(textNote)).toBe(true)
+    expect(filterNotes([textNote], 'feature').map((n) => n.id)).toEqual([99])
+  })
+
   it('searches transcripts case-insensitively, keeping newest first', () => {
     expect(filterNotes(NOTES, 'bank').map((n) => n.id)).toEqual([3, 1])
     expect(filterNotes(NOTES, 'EGGS').map((n) => n.id)).toEqual([2])
